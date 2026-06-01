@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BCRA | Panel de Estadísticas Monetarias</title>
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="Visualizador dinámico e interactivo de variables y estadísticas monetarias del Banco Central de la República Argentina (BCRA).">
+  <meta name="robots" content="index, follow">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-theme">
+  
+  <!-- Contenedor Principal -->
+  <div class="app-container">
+    
+    <!-- Barra Lateral: Catálogo de Variables -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="brand">
+          <i class="fa-solid fa-chart-line brand-icon"></i>
+          <div>
+            <h1 class="brand-title">BCRA Datos</h1>
+            <span class="brand-subtitle">Estadísticas Monetarias v4</span>
+          </div>
+        </div>
+        <button class="close-sidebar-btn" id="closeSidebarBtn" aria-label="Cerrar menú">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      
+      <!-- Buscador de Variables -->
+      <div class="search-box">
+        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+        <input type="text" id="variableSearch" placeholder="Buscar variable..." aria-label="Buscar variable monetaria">
+      </div>
+      
+      <!-- Lista de Variables (se poblará dinámicamente) -->
+      <div class="variables-list-container">
+        <div id="loadingVariables" class="loading-state">
+          <div class="spinner"></div>
+          <p>Cargando catálogo del BCRA...</p>
+        </div>
+        <div id="errorVariables" class="error-state hidden">
+          <i class="fa-solid fa-circle-exclamation error-icon"></i>
+          <p>Error al cargar las variables.</p>
+          <button id="retryVariablesBtn" class="btn btn-sm btn-retry">Reintentar</button>
+        </div>
+        <ul class="variables-list" id="variablesList" role="listbox" aria-label="Variables monetarias disponibles">
+          <!-- Items dinámicos -->
+        </ul>
+      </div>
+      
+      <div class="sidebar-footer">
+        <p>Datos en tiempo real desde la API oficial del BCRA.</p>
+      </div>
+    </aside>
+    
+    <!-- Contenido Principal -->
+    <main class="main-content">
+      
+      <!-- Encabezado Superior -->
+      <header class="top-bar">
+        <div class="top-bar-left">
+          <button class="toggle-sidebar-btn" id="toggleSidebarBtn" aria-label="Abrir catálogo">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+          <h2 class="section-title" id="selectedVariableNameTitle">Selecciona una Variable</h2>
+        </div>
+        
+        <div class="top-bar-right">
+          <!-- Toggle Tema -->
+          <button class="theme-toggle-btn" id="themeToggleBtn" aria-label="Cambiar tema visual">
+            <i class="fa-solid fa-sun icon-sun"></i>
+            <i class="fa-solid fa-moon icon-moon"></i>
+          </button>
+        </div>
+      </header>
+      
+      <!-- Contenedor del Dashboard -->
+      <div class="dashboard-viewport" id="dashboardViewport">
+        
+        <!-- Estado inicial: ninguna variable seleccionada -->
+        <div class="welcome-screen" id="welcomeScreen">
+          <div class="welcome-card">
+            <i class="fa-solid fa-chart-pie welcome-icon animate-pulse"></i>
+            <h3>Bienvenido al Panel del BCRA</h3>
+            <p>Selecciona una de las variables monetarias del panel izquierdo para explorar sus datos históricos, ver gráficos dinámicos y descargar la información.</p>
+            <button class="btn btn-primary" id="startBtn">Explorar catálogo</button>
+          </div>
+        </div>
+        
+        <!-- Estado de carga de datos de la variable -->
+        <div class="loading-overlay hidden" id="loadingDataOverlay">
+          <div class="spinner-large"></div>
+          <p id="loadingDataText">Cargando datos históricos de la variable...</p>
+        </div>
+        
+        <!-- Panel de Datos Activo -->
+        <div class="dashboard-grid hidden" id="dashboardContent">
+          
+          <!-- Fila 1: Tarjetas de Métricas Rápidas (KPIs) -->
+          <div class="kpi-row">
+            
+            <div class="kpi-card" id="kpiLatest">
+              <div class="kpi-icon-wrapper val-color">
+                <i class="fa-solid fa-sack-dollar"></i>
+              </div>
+              <div class="kpi-info">
+                <span class="kpi-label">Último Valor Registrado</span>
+                <h4 class="kpi-value" id="latestValue">-</h4>
+                <span class="kpi-subtext" id="latestDate">-</span>
+              </div>
+            </div>
+            
+            <div class="kpi-card" id="kpiChange">
+              <div class="kpi-icon-wrapper change-color" id="kpiChangeIconWrapper">
+                <i class="fa-solid fa-percent" id="kpiChangeIcon"></i>
+              </div>
+              <div class="kpi-info">
+                <div class="kpi-header-with-selectors">
+                  <span class="kpi-label">Rendimiento</span>
+                  <div class="kpi-period-pills" id="kpiPeriodPills">
+                    <button class="pill-btn active" data-days="30" title="Último Mes">1M</button>
+                    <button class="pill-btn" data-days="90" title="Últimos 3 Meses">3M</button>
+                    <button class="pill-btn" data-days="180" title="Últimos 6 Meses">6M</button>
+                    <button class="pill-btn" data-days="365" title="Último Año">1A</button>
+                  </div>
+                </div>
+                <h4 class="kpi-value" id="changeValue">-</h4>
+                <span class="kpi-subtext" id="changePercent">-</span>
+              </div>
+            </div>
+            
+            <div class="kpi-card" id="kpiMax">
+              <div class="kpi-icon-wrapper max-color">
+                <i class="fa-solid fa-arrow-trend-up"></i>
+              </div>
+              <div class="kpi-info">
+                <span class="kpi-label">Valor Máximo Histórico</span>
+                <h4 class="kpi-value" id="maxValue">-</h4>
+                <span class="kpi-subtext" id="maxDate">-</span>
+              </div>
+            </div>
+            
+            <div class="kpi-card" id="kpiMin">
+              <div class="kpi-icon-wrapper min-color">
+                <i class="fa-solid fa-arrow-trend-down"></i>
+              </div>
+              <div class="kpi-info">
+                <span class="kpi-label">Valor Mínimo Histórico</span>
+                <h4 class="kpi-value" id="minValue">-</h4>
+                <span class="kpi-subtext" id="minDate">-</span>
+              </div>
+            </div>
+            
+          </div>
+          
+          <!-- Fila 2: Controles de Filtros y Gráfico -->
+          <div class="main-card chart-container-card">
+            
+            <div class="card-header-controls">
+              <!-- Rango rápido -->
+              <div class="quick-ranges" id="quickRanges" role="group" aria-label="Rango de fecha rápido">
+                <button class="range-btn" data-days="30">1M</button>
+                <button class="range-btn" data-days="90">3M</button>
+                <button class="range-btn" data-days="180">6M</button>
+                <button class="range-btn" data-days="365">1A</button>
+                <button class="range-btn" data-days="1825">5A</button>
+                <button class="range-btn active" data-days="all">Todo</button>
+              </div>
+              
+              <!-- Filtro de fechas manual -->
+              <div class="date-picker-group">
+                <div class="date-input-wrapper">
+                  <label for="startDate">Desde</label>
+                  <input type="date" id="startDate" aria-label="Fecha de inicio">
+                </div>
+                <div class="date-input-wrapper">
+                  <label for="endDate">Hasta</label>
+                  <input type="date" id="endDate" aria-label="Fecha de fin">
+                </div>
+                <button class="btn btn-secondary btn-icon" id="applyDatesBtn" title="Aplicar fechas">
+                  <i class="fa-solid fa-circle-check"></i>
+                </button>
+              </div>
+              
+              <!-- Acciones -->
+              <div class="card-actions">
+                <button class="btn btn-success" id="exportCsvBtn">
+                  <i class="fa-solid fa-file-csv"></i> Exportar CSV
+                </button>
+              </div>
+            </div>
+            
+            <!-- Selector de tipo de gráfico y Tabs -->
+            <div class="visualization-tabs">
+              <div class="tabs">
+                <button class="tab-btn active" data-target="tabChart" id="btnTabChart">
+                  <i class="fa-solid fa-chart-area"></i> Gráfico
+                </button>
+                <button class="tab-btn" data-target="tabTable" id="btnTabTable">
+                  <i class="fa-solid fa-table-list"></i> Tabla de Datos
+                </button>
+              </div>
+              
+              <div class="chart-type-selector" id="chartTypeSelector">
+                <button class="chart-style-btn active" data-type="line" title="Gráfico de Líneas">
+                  <i class="fa-solid fa-chart-line"></i>
+                </button>
+                <button class="chart-style-btn" data-type="bar" title="Gráfico de Barras">
+                  <i class="fa-solid fa-chart-bar"></i>
+                </button>
+              </div>
+            </div>
+            
+            <!-- Contenido de las Tabs -->
+            <div class="tab-content-container">
+              
+              <!-- Tab de Gráfico -->
+              <div class="tab-panel active" id="tabChart">
+                <div class="chart-wrapper">
+                  <canvas id="monetaryChart"></canvas>
+                </div>
+              </div>
+              
+              <!-- Tab de Tabla -->
+              <div class="tab-panel" id="tabTable">
+                <div class="table-wrapper">
+                  <table class="data-table" id="dataTable">
+                    <thead>
+                      <tr>
+                        <th scope="col">Fecha</th>
+                        <th scope="col" class="text-right">Valor</th>
+                        <th scope="col" class="text-right">Cambio Diario</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                      <!-- Filas dinámicas -->
+                    </tbody>
+                  </table>
+                </div>
+                <!-- Paginación de la Tabla -->
+                <div class="table-pagination">
+                  <span id="paginationInfo">Mostrando 0-0 de 0 registros</span>
+                  <div class="pagination-controls">
+                    <button class="btn btn-sm btn-icon" id="prevPageBtn" disabled><i class="fa-solid fa-chevron-left"></i></button>
+                    <button class="btn btn-sm btn-icon" id="nextPageBtn" disabled><i class="fa-solid fa-chevron-right"></i></button>
+                  </div>
+                </div>
+              </div>
+              
+            </div>
+            
+          </div>
+          
+          <!-- Fila 3: Metodología e Información Detallada -->
+          <div class="main-card info-card">
+            <div class="info-card-header">
+              <i class="fa-solid fa-circle-info info-icon"></i>
+              <h3>Metodología e Información Técnica</h3>
+            </div>
+            <div class="info-card-body" id="variableDescriptionBody">
+              <p>Selecciona una variable para visualizar los detalles metodológicos del Banco Central.</p>
+            </div>
+          </div>
+          
+        </div>
+        
+      </div>
+      
+    </main>
+    
+  </div>
+  
+  <!-- Notificación Toast -->
+  <div class="toast hidden" id="toast" role="alert" aria-live="assertive" aria-atomic="true">
+    <i id="toastIcon" class="fa-solid fa-circle-check toast-icon"></i>
+    <span id="toastMessage">Mensaje del sistema</span>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
