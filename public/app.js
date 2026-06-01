@@ -524,13 +524,56 @@ function renderChart() {
     state.chart.destroy();
   }
   
-  const labels = state.filteredData.map(d => formatDate(d.date));
-  const datasetValues = state.filteredData.map(d => d.value);
-  
   const isDark = document.body.classList.contains('dark-theme');
   const primaryColor = getComputedStyle(document.body).getPropertyValue('--primary').trim();
   const textColor = getComputedStyle(document.body).getPropertyValue('--text-secondary').trim();
   const gridColor = getComputedStyle(document.body).getPropertyValue('--border-color').trim();
+  
+  const labels = state.filteredData.map(d => formatDate(d.date));
+  const datasetValues = state.filteredData.map(d => d.value);
+  
+  // Encontrar índices de Máximo y Mínimo en los datos del gráfico
+  let maxIdx = -1;
+  let minIdx = -1;
+  let maxVal = -Infinity;
+  let minVal = Infinity;
+  
+  state.filteredData.forEach((d, idx) => {
+    if (d.value > maxVal) {
+      maxVal = d.value;
+      maxIdx = idx;
+    }
+    if (d.value < minVal) {
+      minVal = d.value;
+      minIdx = idx;
+    }
+  });
+  
+  // Arreglos de estilos por punto
+  const pointRadii = datasetValues.map((val, idx) => {
+    if (idx === maxIdx || idx === minIdx) return 6.5; // Bolitas amarillas grandes
+    return datasetValues.length > 80 ? 0 : 3;
+  });
+  
+  const pointBgColors = datasetValues.map((val, idx) => {
+    if (idx === maxIdx || idx === minIdx) return '#f59e0b'; // Amarillo Oro
+    return primaryColor;
+  });
+  
+  const pointBorderColors = datasetValues.map((val, idx) => {
+    if (idx === maxIdx || idx === minIdx) return '#ffffff'; // Resaltado blanco
+    return '#ffffff';
+  });
+  
+  const pointHoverRadii = datasetValues.map((val, idx) => {
+    if (idx === maxIdx || idx === minIdx) return 9;
+    return 6;
+  });
+  
+  const pointBorderWidths = datasetValues.map((val, idx) => {
+    if (idx === maxIdx || idx === minIdx) return 2.5;
+    return 1;
+  });
   
   // Crear Gradiente debajo de la curva (solo para gráfico de línea)
   let bgGradient = primaryColor;
@@ -570,11 +613,12 @@ function renderChart() {
         backgroundColor: bgGradient,
         borderWidth: state.chartType === 'line' ? 2.5 : 1,
         fill: state.chartType === 'line',
-        pointRadius: datasetValues.length > 80 ? 0 : 3,
-        pointHoverRadius: 6,
-        pointBackgroundColor: primaryColor,
-        pointBorderColor: '#ffffff',
-        pointHoverBackgroundColor: primaryColor,
+        pointRadius: pointRadii,
+        pointHoverRadius: pointHoverRadii,
+        pointBackgroundColor: pointBgColors,
+        pointBorderColor: pointBorderColors,
+        pointBorderWidth: pointBorderWidths,
+        pointHoverBackgroundColor: pointBgColors,
         pointHoverBorderColor: '#ffffff',
         tension: 0.15 // Suavizado de la línea
       }]
@@ -607,7 +651,13 @@ function renderChart() {
           },
           callbacks: {
             label: function(context) {
-              return ' Valor: ' + formatValue(context.raw);
+              let valText = ' Valor: ' + formatValue(context.raw);
+              if (context.dataIndex === maxIdx) {
+                valText += ' 📈 (MÁXIMO)';
+              } else if (context.dataIndex === minIdx) {
+                valText += ' 📉 (MÍNIMO)';
+              }
+              return valText;
             }
           }
         }
