@@ -298,19 +298,20 @@ function renderVariablesList() {
     const id = String(v.idVariable || v.id || v.codigo);
     const desc = v.descripcion || v.name;
     
-    // Crear el contenedor de texto
+    // Crear el contenedor de texto (permitiendo saltos de línea para ver el nombre completo)
     const textSpan = document.createElement('span');
     textSpan.textContent = `${id} - ${desc}`;
     textSpan.style.flex = '1';
-    textSpan.style.overflow = 'hidden';
-    textSpan.style.textOverflow = 'ellipsis';
-    textSpan.style.whiteSpace = 'nowrap';
+    textSpan.style.lineHeight = '1.4';
+    textSpan.style.fontSize = '12.5px';
+    textSpan.style.paddingRight = '4px';
     
     // Crear la estrella de favoritos
     const starIcon = document.createElement('i');
     const isFav = state.favorites.includes(id);
     starIcon.className = isFav ? 'fa-solid fa-star fav-icon active' : 'fa-regular fa-star fav-icon';
     starIcon.title = isFav ? 'Quitar de favoritos' : 'Agregar a favoritos';
+    starIcon.style.marginTop = '2px'; // Alinear con la primera línea de texto
     
     // Evento de clic en la estrella (detiene propagación)
     starIcon.addEventListener('click', (e) => {
@@ -318,11 +319,12 @@ function renderVariablesList() {
       toggleFavorite(id);
     });
     
-    // Configurar flex y alineación
+    // Configurar flex y alineación (flex-start para alinear arriba si hay varias líneas)
     li.style.display = 'flex';
-    li.style.alignItems = 'center';
+    li.style.alignItems = 'flex-start';
     li.style.justifyContent = 'space-between';
     li.style.gap = '8px';
+    li.style.padding = '10px 14px';
     
     li.appendChild(textSpan);
     li.appendChild(starIcon);
