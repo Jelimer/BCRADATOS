@@ -282,18 +282,19 @@ function renderVariablesList() {
     return;
   }
   
-  // Ordenar variables: primero los favoritos, luego el resto
-  const sortedVariables = [...state.filteredVariables].sort((a, b) => {
-    const idA = String(a.idVariable || a.id || a.codigo);
-    const idB = String(b.idVariable || b.id || b.codigo);
-    const isFavA = state.favorites.includes(idA);
-    const isFavB = state.favorites.includes(idB);
-    if (isFavA && !isFavB) return -1;
-    if (!isFavA && isFavB) return 1;
-    return 0;
+  // Separar favoritos y no favoritos
+  const favoritesList = state.filteredVariables.filter(v => {
+    const id = String(v.idVariable || v.id || v.codigo);
+    return state.favorites.includes(id);
   });
   
-  sortedVariables.forEach(v => {
+  const othersList = state.filteredVariables.filter(v => {
+    const id = String(v.idVariable || v.id || v.codigo);
+    return !state.favorites.includes(id);
+  });
+  
+  // Función auxiliar para renderizar un item individual
+  function renderItem(v) {
     const li = document.createElement('li');
     const id = String(v.idVariable || v.id || v.codigo);
     const desc = v.descripcion || v.name;
@@ -319,7 +320,7 @@ function renderVariablesList() {
       toggleFavorite(id);
     });
     
-    // Configurar flex y alineación (flex-start para alinear arriba si hay varias líneas)
+    // Configurar flex y alineación
     li.style.display = 'flex';
     li.style.alignItems = 'flex-start';
     li.style.justifyContent = 'space-between';
@@ -338,7 +339,30 @@ function renderVariablesList() {
     
     li.addEventListener('click', () => handleVariableSelect(v));
     DOM.variablesList.appendChild(li);
-  });
+  }
+  
+  // 1. Renderizar sección de Favoritos si existen
+  if (favoritesList.length > 0) {
+    const favHeader = document.createElement('li');
+    favHeader.className = 'list-section-header';
+    favHeader.innerHTML = '<i class="fa-solid fa-star" style="color: #f59e0b;"></i> Favoritos';
+    DOM.variablesList.appendChild(favHeader);
+    
+    favoritesList.forEach(v => renderItem(v));
+  }
+  
+  // 2. Renderizar sección de Todas las Variables
+  if (othersList.length > 0) {
+    const othersHeader = document.createElement('li');
+    othersHeader.className = 'list-section-header';
+    othersHeader.innerHTML = '<i class="fa-solid fa-chart-simple"></i> Conceptos';
+    if (favoritesList.length > 0) {
+      othersHeader.style.marginTop = '16px';
+    }
+    DOM.variablesList.appendChild(othersHeader);
+    
+    othersList.forEach(v => renderItem(v));
+  }
 }
 
 // Alternar favoritos y persistir en localStorage
@@ -517,8 +541,26 @@ function renderChart() {
     bgGradient = gradient;
   }
   
+  // Plugin custom para dibujar sombra de neón debajo de la línea
+  const lineShadowPlugin = {
+    id: 'lineShadow',
+    beforeDatasetsDraw: (chart) => {
+      if (chart.config.type !== 'line') return;
+      const ctx = chart.ctx;
+      ctx.save();
+      const primaryColor = getComputedStyle(document.body).getPropertyValue('--primary').trim();
+      ctx.shadowColor = primaryColor;
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetY = 4;
+    },
+    afterDatasetsDraw: (chart) => {
+      chart.ctx.restore();
+    }
+  };
+  
   state.chart = new Chart(ctx, {
     type: state.chartType,
+    plugins: [lineShadowPlugin],
     data: {
       labels: labels,
       datasets: [{
