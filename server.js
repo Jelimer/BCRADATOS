@@ -77,9 +77,15 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`==================================================`);
-  console.log(` Servidor Proxy BCRA corriendo en puerto: ${PORT}`);
-  console.log(` URL Local: http://localhost:${PORT}`);
-  console.log(`==================================================`);
-});
+// Exportar app para el despliegue en Vercel
+module.exports = app;
+
+// Iniciar el servidor local si se ejecuta directamente
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`==================================================`);
+    console.log(` Servidor Proxy BCRA corriendo en puerto: ${PORT}`);
+    console.log(` URL Local: http://localhost:${PORT}`);
+    console.log(`==================================================`);
+  });
+}
