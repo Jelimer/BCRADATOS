@@ -782,12 +782,30 @@ const IndecModule = {
       this.processAndRender();
     });
 
+    document.getElementById('applyIndecDatesBtn').addEventListener('click', () => this.applyManualDatesFilter());
+
     document.getElementById('btnShowIpc').addEventListener('click', () => this.switchMetric('ipc'));
     document.getElementById('btnShowEmae').addEventListener('click', () => this.switchMetric('emae'));
     document.getElementById('btnShowSalarios').addEventListener('click', () => this.switchMetric('salarios'));
 
     await this.fetchData();
     this.initialized = true;
+  },
+
+  applyManualDatesFilter() {
+    const startStr = document.getElementById('indecStartDate').value;
+    const endStr = document.getElementById('indecEndDate').value;
+    if (!startStr || !endStr) {
+      showToast('Selecciona ambas fechas.', 'warning');
+      return;
+    }
+    if (new Date(startStr) > new Date(endStr)) {
+      showToast('Fecha de inicio posterior a la fecha de fin.', 'warning');
+      return;
+    }
+    document.querySelectorAll('#indecRanges .range-btn').forEach(b => b.classList.remove('active'));
+    state.indec.days = 'manual';
+    this.processAndRender();
   },
 
   async fetchData() {
@@ -806,7 +824,6 @@ const IndecModule = {
       state.indec.raw = raw;
       
       // Parsear la respuesta tabular del INDEC
-      // data: [ [fecha, val1, val2, val3, val4, val5], ... ]
       const fields = raw.meta.slice(1).map(m => m.field.id);
       state.indec.parsedData = raw.data.map(row => {
         const entry = { date: row[0] };
@@ -832,6 +849,17 @@ const IndecModule = {
         }
       });
 
+      // Inicializar campos de fecha manual
+      const dates = state.indec.parsedData.map(d => d.date);
+      if (dates.length > 0) {
+        document.getElementById('indecStartDate').value = dates[0];
+        document.getElementById('indecEndDate').value = dates[dates.length - 1];
+        document.getElementById('indecStartDate').min = dates[0];
+        document.getElementById('indecStartDate').max = dates[dates.length - 1];
+        document.getElementById('indecEndDate').min = dates[0];
+        document.getElementById('indecEndDate').max = dates[dates.length - 1];
+      }
+
       this.processAndRender();
       showToast('Datos del INDEC cargados con éxito.', 'success');
     } catch (error) {
@@ -846,51 +874,114 @@ const IndecModule = {
     const data = state.indec.parsedData;
     if (data.length === 0) return;
 
-    // 1. Poblar KPIs con la última fecha
     const len = data.length;
-    const latest = data[len - 1];
+
+    // Buscar el último registro no nulo para IPC General
+    let latestIpc = null;
+    for (let i = len - 1; i >= 0; i--) {
+      if (data[i]['145.3_INGNACUAL_DICI_M_38'] !== null && !isNaN(data[i]['145.3_INGNACUAL_DICI_M_38'])) {
+        latestIpc = data[i];
+        break;
+      }
+    }
+
+    // Buscar el último registro no nulo para RIPTE
+    let latestRipte = null;
+    for (let i = len - 1; i >= 0; i--) {
+      if (data[i]['158.1_REPTE_0_0_5'] !== null && !isNaN(data[i]['158.1_REPTE_0_0_5'])) {
+        latestRipte = data[i];
+        break;
+      }
+    }
+
+    // Buscar el último registro no nulo para EMAE
+    let latestEmae = null;
+    let emaeIndexInGeneral = -1;
+    for (let i = len - 1; i >= 0; i--) {
+      if (data[i]['143.3_NO_PR_2004_A_21'] !== null && !isNaN(data[i]['143.3_NO_PR_2004_A_21'])) {
+        latestEmae = data[i];
+        emaeIndexInGeneral = i;
+        break;
+      }
+    }
+
+    // 1. Poblar KPIs con los últimos datos válidos
 
     // Inflación mensual general
-    const ipcMensual = latest['145.3_INGNACUAL_DICI_M_38'];
-    document.getElementById('ipcMensualValue').textContent = (ipcMensual !== undefined) ? `${ipcMensual.toFixed(1)}%` : '-';
-    document.getElementById('ipcMensualDate').textContent = formatDate(latest.date);
+    const ipcMensual = latestIpc ? latestIpc['145.3_INGNACUAL_DICI_M_38'] : null;
+    document.getElementById('ipcMensualValue').textContent = ipcMensual !== null ? `${ipcMensual.toFixed(1)}%` : '-';
+    document.getElementById('ipcMensualDate').textContent = latestIpc ? formatDate(latestIpc.date) : '-';
 
-    // Inflación Interanual YoY (Capitalizando las tasas de los últimos 12 meses)
+    // Inflación Interanual YoY (acumulado de los últimos 12 meses válidos de la serie IPC)
     let ipcAnualVal = 0;
-    if (len >= 12) {
-      let acum = 1;
-      for (let i = len - 12; i < len; i++) {
-        const tasa = data[i]['145.3_INGNACUAL_DICI_M_38'] || 0;
-        acum *= (1 + tasa / 100);
+    let validIpcMonths = [];
+    for (let i = len - 1; i >= 0; i--) {
+      const val = data[i]['145.3_INGNACUAL_DICI_M_38'];
+      if (val !== null && !isNaN(val)) {
+        validIpcMonths.unshift(val);
+        if (validIpcMonths.length === 12) break;
       }
+    }
+    if (validIpcMonths.length === 12) {
+      let acum = 1;
+      validIpcMonths.forEach(tasa => {
+        acum *= (1 + tasa / 100);
+      });
       ipcAnualVal = (acum - 1) * 100;
     }
     document.getElementById('ipcAnualValue').textContent = ipcAnualVal > 0 ? `${ipcAnualVal.toFixed(1)}%` : '-';
     document.getElementById('ipcAnualDate').textContent = `Acumulado 12 Meses`;
 
     // RIPTE Salario
-    const ripte = latest['158.1_REPTE_0_0_5'];
+    const ripte = latestRipte ? latestRipte['158.1_REPTE_0_0_5'] : null;
     document.getElementById('ripteValue').textContent = ripte ? `$${formatValue(ripte)}` : '-';
-    document.getElementById('ripteDate').textContent = `Salario promedio a ${formatDate(latest.date).slice(3)}`;
+    document.getElementById('ripteDate').textContent = latestRipte ? `Salario promedio a ${formatDate(latestRipte.date).slice(3)}` : '-';
 
-    // EMAE Actividad Económica (Calculamos variación YoY vs 12 meses atrás)
+    // EMAE Actividad Económica (Calculamos variación YoY del último registro de EMAE vs el de 12 meses atrás)
     let emaeYoY = 0;
-    if (len >= 13) {
-      const emaeAct = latest['143.3_NO_PR_2004_A_21'];
-      const emaePrev = data[len - 13]['143.3_NO_PR_2004_A_21'];
+    if (emaeIndexInGeneral >= 12 && latestEmae) {
+      const emaeAct = latestEmae['143.3_NO_PR_2004_A_21'];
+      const targetDateObj = new Date(latestEmae.date);
+      targetDateObj.setFullYear(targetDateObj.getFullYear() - 1);
+      const targetDateStr = targetDateObj.toISOString().split('T')[0].slice(0, 7); // YYYY-MM
+      
+      let emaePrevObj = null;
+      for (let i = emaeIndexInGeneral - 1; i >= 0; i--) {
+        if (data[i].date.startsWith(targetDateStr)) {
+          emaePrevObj = data[i];
+          break;
+        }
+      }
+      const emaePrev = emaePrevObj ? emaePrevObj['143.3_NO_PR_2004_A_21'] : data[emaeIndexInGeneral - 12]['143.3_NO_PR_2004_A_21'];
       if (emaePrev > 0) {
         emaeYoY = ((emaeAct - emaePrev) / emaePrev) * 100;
       }
     }
-    document.getElementById('emaeValue').textContent = (emaeYoY >= 0 ? '+' : '') + emaeYoY.toFixed(1) + '%';
+    document.getElementById('emaeValue').textContent = emaeYoY !== 0 ? (emaeYoY >= 0 ? '+' : '') + emaeYoY.toFixed(1) + '%' : '-';
+    if (latestEmae) {
+      document.getElementById('emaeDate').textContent = `Var. Interanual a ${formatDate(latestEmae.date).slice(3)}`;
+    }
 
     // 2. Filtrar por rango
     let filtered = [...data];
-    if (state.indec.days !== 'all') {
+    if (state.indec.days !== 'all' && state.indec.days !== 'manual') {
       const targetDate = new Date();
       targetDate.setDate(targetDate.getDate() - state.indec.days);
       const targetStr = targetDate.toISOString().split('T')[0];
       filtered = data.filter(d => d.date >= targetStr);
+      if (filtered.length > 0) {
+        document.getElementById('indecStartDate').value = filtered[0].date;
+        document.getElementById('indecEndDate').value = filtered[filtered.length - 1].date;
+      }
+    } else if (state.indec.days === 'all') {
+      if (data.length > 0) {
+        document.getElementById('indecStartDate').value = data[0].date;
+        document.getElementById('indecEndDate').value = data[data.length - 1].date;
+      }
+    } else if (state.indec.days === 'manual') {
+      const startStr = document.getElementById('indecStartDate').value;
+      const endStr = document.getElementById('indecEndDate').value;
+      filtered = data.filter(d => d.date >= startStr && d.date <= endStr);
     }
 
     // 3. Renderizar gráfico
@@ -937,15 +1028,35 @@ const IndecModule = {
     let datasets = [];
 
     if (state.indec.activeMetric === 'ipc') {
+      const ipcData = chartData.map(d => d['145.3_INGNACUAL_DICI_M_38']);
+      
+      // Calcular MAX y MIN
+      let maxIdx = -1, minIdx = -1, maxVal = -Infinity, minVal = Infinity;
+      ipcData.forEach((val, idx) => {
+        if (val !== null && !isNaN(val)) {
+          if (val > maxVal) { maxVal = val; maxIdx = idx; }
+          if (val < minVal) { minVal = val; minIdx = idx; }
+        }
+      });
+
+      const pointRadii = ipcData.map((val, idx) => (idx === maxIdx || idx === minIdx) ? 7 : (ipcData.length > 80 ? 0 : 3.5));
+      const pointBgColors = ipcData.map((val, idx) => (idx === maxIdx || idx === minIdx) ? '#ffd60a' : '#bf5af2');
+      const pointHoverRadii = ipcData.map((val, idx) => (idx === maxIdx || idx === minIdx) ? 9 : 6);
+
       datasets = [
         {
           label: 'Inflación Mensual General (%)',
-          data: chartData.map(d => d['145.3_INGNACUAL_DICI_M_38']),
+          data: ipcData,
           borderColor: '#bf5af2',
           backgroundColor: 'rgba(191, 90, 242, 0.15)',
           fill: true,
           tension: 0.15,
-          borderWidth: 2
+          borderWidth: 2,
+          pointRadius: pointRadii,
+          pointBackgroundColor: pointBgColors,
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 1.5,
+          pointHoverRadius: pointHoverRadii
         },
         {
           label: 'Inflación Núcleo (%)',
@@ -955,7 +1066,8 @@ const IndecModule = {
           backgroundColor: 'transparent',
           fill: false,
           tension: 0.15,
-          borderWidth: 1.5
+          borderWidth: 1.5,
+          pointRadius: chartData.length > 80 ? 0 : 3
         }
       ];
     } else if (state.indec.activeMetric === 'emae') {
@@ -970,20 +1082,31 @@ const IndecModule = {
         return 0;
       });
 
+      // Calcular MAX y MIN
+      let maxIdx = -1, minIdx = -1, maxVal = -Infinity, minVal = Infinity;
+      emaeYoYList.forEach((val, idx) => {
+        if (val !== null && !isNaN(val)) {
+          if (val > maxVal) { maxVal = val; maxIdx = idx; }
+          if (val < minVal) { minVal = val; minIdx = idx; }
+        }
+      });
+
+      const barBgColors = emaeYoYList.map((val, idx) => (idx === maxIdx || idx === minIdx) ? '#ffd60a' : 'rgba(255, 214, 10, 0.2)');
+      const barBorderColors = emaeYoYList.map((val, idx) => (idx === maxIdx || idx === minIdx) ? '#ffd60a' : '#ffd60a');
+
       datasets = [
         {
           label: 'Crecimiento de la Actividad Económica (EMAE YoY %)',
           data: emaeYoYList,
-          borderColor: '#ffd60a',
-          backgroundColor: 'rgba(255, 214, 10, 0.2)',
+          borderColor: barBorderColors,
+          backgroundColor: barBgColors,
           fill: true,
           type: 'bar',
-          borderWidth: 1
+          borderWidth: 1.5
         }
       ];
     } else if (state.indec.activeMetric === 'salarios') {
       // Graficar Salarios (RIPTE) acumulado vs Inflación (IPC) acumulado en base 100
-      // Normalizamos el primer mes del dataset seleccionado a base 100
       let baseIpc = 100;
       let baseRipte = 100;
 
@@ -1008,6 +1131,19 @@ const IndecModule = {
         }
       });
 
+      // Calcular MAX y MIN para Salarios (RIPTE)
+      let maxIdx = -1, minIdx = -1, maxVal = -Infinity, minVal = Infinity;
+      ripteAcumulado.forEach((val, idx) => {
+        if (val !== null && !isNaN(val)) {
+          if (val > maxVal) { maxVal = val; maxIdx = idx; }
+          if (val < minVal) { minVal = val; minIdx = idx; }
+        }
+      });
+
+      const pointRadii = ripteAcumulado.map((val, idx) => (idx === maxIdx || idx === minIdx) ? 7 : (ripteAcumulado.length > 80 ? 0 : 3.5));
+      const pointBgColors = ripteAcumulado.map((val, idx) => (idx === maxIdx || idx === minIdx) ? '#ffd60a' : '#00f0ff');
+      const pointHoverRadii = ripteAcumulado.map((val, idx) => (idx === maxIdx || idx === minIdx) ? 9 : 6);
+
       datasets = [
         {
           label: 'Evolución de Salarios RIPTE (Base 100)',
@@ -1016,7 +1152,12 @@ const IndecModule = {
           backgroundColor: 'transparent',
           fill: false,
           tension: 0.1,
-          borderWidth: 2.5
+          borderWidth: 2.5,
+          pointRadius: pointRadii,
+          pointBackgroundColor: pointBgColors,
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 1.5,
+          pointHoverRadius: pointHoverRadii
         },
         {
           label: 'Evolución del Costo de Vida IPC (Base 100)',
@@ -1025,7 +1166,8 @@ const IndecModule = {
           backgroundColor: 'transparent',
           fill: false,
           tension: 0.1,
-          borderWidth: 2.5
+          borderWidth: 2.5,
+          pointRadius: chartData.length > 80 ? 0 : 3
         }
       ];
     }
@@ -1086,11 +1228,29 @@ const DolaresModule = {
       this.renderChart();
     });
 
+    document.getElementById('applyDolaresDatesBtn').addEventListener('click', () => this.applyManualDatesFilter());
+
     document.getElementById('btnShowDolarChart').addEventListener('click', () => this.switchView('prices'));
     document.getElementById('btnShowBrechaChart').addEventListener('click', () => this.switchView('brecha'));
 
     await this.fetchData();
     this.initialized = true;
+  },
+
+  applyManualDatesFilter() {
+    const startStr = document.getElementById('dolaresStartDate').value;
+    const endStr = document.getElementById('dolaresEndDate').value;
+    if (!startStr || !endStr) {
+      showToast('Selecciona ambas fechas.', 'warning');
+      return;
+    }
+    if (new Date(startStr) > new Date(endStr)) {
+      showToast('Fecha de inicio posterior a la fecha de fin.', 'warning');
+      return;
+    }
+    document.querySelectorAll('#dolaresRanges .range-btn').forEach(b => b.classList.remove('active'));
+    state.dolares.days = 'manual';
+    this.renderChart();
   },
 
   async fetchData() {
@@ -1119,7 +1279,6 @@ const DolaresModule = {
       state.dolares.live.ccl = getPrice(cclRaw) || 1240;
 
       // 2. Obtener Dólar Oficial actual (Variable 4 del BCRA)
-      // Como ya tenemos el catálogo de variables, podemos buscar el último valor de la variable 4
       const oficialVar = state.variables.find(v => String(v.idVariable || v.id) === '4');
       state.dolares.live.oficial = oficialVar ? parseFloat(oficialVar.ultValorInformado) : 950;
       
@@ -1179,6 +1338,17 @@ const DolaresModule = {
       // Sincronizar series por fecha
       state.dolares.historical.oficial = parsedOficial;
       state.dolares.historical.mep = parsedMep.sort((a,b) => a.date.localeCompare(b.date));
+
+      // Inicializar campos de fecha manual
+      const dates = state.dolares.historical.mep.map(d => d.date);
+      if (dates.length > 0) {
+        document.getElementById('dolaresStartDate').value = dates[0];
+        document.getElementById('dolaresEndDate').value = dates[dates.length - 1];
+        document.getElementById('dolaresStartDate').min = dates[0];
+        document.getElementById('dolaresStartDate').max = dates[dates.length - 1];
+        document.getElementById('dolaresEndDate').min = dates[0];
+        document.getElementById('dolaresEndDate').max = dates[dates.length - 1];
+      }
       
       this.renderChart();
       showToast('Cotizaciones y brecha cambiaria actualizadas.', 'success');
@@ -1245,11 +1415,24 @@ const DolaresModule = {
 
     // Filtrar por rango
     let filteredMep = [...mepData];
-    if (state.dolares.days !== 'all') {
+    if (state.dolares.days !== 'all' && state.dolares.days !== 'manual') {
       const targetDate = new Date();
       targetDate.setDate(targetDate.getDate() - state.dolares.days);
       const targetStr = targetDate.toISOString().split('T')[0];
       filteredMep = mepData.filter(d => d.date >= targetStr);
+      if (filteredMep.length > 0) {
+        document.getElementById('dolaresStartDate').value = filteredMep[0].date;
+        document.getElementById('dolaresEndDate').value = filteredMep[filteredMep.length - 1].date;
+      }
+    } else if (state.dolares.days === 'all') {
+      if (mepData.length > 0) {
+        document.getElementById('dolaresStartDate').value = mepData[0].date;
+        document.getElementById('dolaresEndDate').value = mepData[mepData.length - 1].date;
+      }
+    } else if (state.dolares.days === 'manual') {
+      const startStr = document.getElementById('dolaresStartDate').value;
+      const endStr = document.getElementById('dolaresEndDate').value;
+      filteredMep = mepData.filter(d => d.date >= startStr && d.date <= endStr);
     }
 
     // Alinear el oficial a las mismas fechas del MEP
@@ -1260,16 +1443,37 @@ const DolaresModule = {
     const labels = dates.map(d => formatDate(d));
     let datasets = [];
 
+    let maxIdx = -1, minIdx = -1, maxVal = -Infinity, minVal = Infinity;
+
     if (state.dolares.activeView === 'prices') {
+      const mepPrices = filteredMep.map(d => d.value);
+      
+      // Calcular MAX/MIN de Dólar MEP
+      mepPrices.forEach((val, idx) => {
+        if (val !== null && !isNaN(val)) {
+          if (val > maxVal) { maxVal = val; maxIdx = idx; }
+          if (val < minVal) { minVal = val; minIdx = idx; }
+        }
+      });
+
+      const pointRadii = mepPrices.map((val, idx) => (idx === maxIdx || idx === minIdx) ? 7 : (mepPrices.length > 80 ? 0 : 3.5));
+      const pointBgColors = mepPrices.map((val, idx) => (idx === maxIdx || idx === minIdx) ? '#ffd60a' : '#30d158');
+      const pointHoverRadii = mepPrices.map((val, idx) => (idx === maxIdx || idx === minIdx) ? 9 : 6);
+
       datasets = [
         {
           label: 'Dólar MEP ($)',
-          data: filteredMep.map(d => d.value),
+          data: mepPrices,
           borderColor: '#30d158',
           backgroundColor: 'rgba(48, 209, 88, 0.1)',
           fill: true,
           tension: 0.1,
-          borderWidth: 2.5
+          borderWidth: 2.5,
+          pointRadius: pointRadii,
+          pointBackgroundColor: pointBgColors,
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 1.5,
+          pointHoverRadius: pointHoverRadii
         },
         {
           label: 'Dólar Oficial BNA ($)',
@@ -1278,7 +1482,8 @@ const DolaresModule = {
           backgroundColor: 'transparent',
           fill: false,
           tension: 0.1,
-          borderWidth: 2
+          borderWidth: 2,
+          pointRadius: mepPrices.length > 80 ? 0 : 3
         }
       ];
     } else {
@@ -1291,6 +1496,18 @@ const DolaresModule = {
         return null;
       });
 
+      // Calcular MAX/MIN de Brecha
+      brechaData.forEach((val, idx) => {
+        if (val !== null && !isNaN(val)) {
+          if (val > maxVal) { maxVal = val; maxIdx = idx; }
+          if (val < minVal) { minVal = val; minIdx = idx; }
+        }
+      });
+
+      const pointRadii = brechaData.map((val, idx) => (idx === maxIdx || idx === minIdx) ? 7 : (brechaData.length > 80 ? 0 : 3.5));
+      const pointBgColors = brechaData.map((val, idx) => (idx === maxIdx || idx === minIdx) ? '#ffd60a' : '#ffd60a');
+      const pointHoverRadii = brechaData.map((val, idx) => (idx === maxIdx || idx === minIdx) ? 9 : 6);
+
       datasets = [
         {
           label: 'Brecha Cambiaria (%)',
@@ -1299,7 +1516,12 @@ const DolaresModule = {
           backgroundColor: 'rgba(255, 214, 10, 0.15)',
           fill: true,
           tension: 0.1,
-          borderWidth: 2
+          borderWidth: 2,
+          pointRadius: pointRadii,
+          pointBackgroundColor: pointBgColors,
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 1.5,
+          pointHoverRadius: pointHoverRadii
         }
       ];
     }
@@ -1319,7 +1541,14 @@ const DolaresModule = {
             borderColor: gridColor,
             borderWidth: 1,
             callbacks: {
-              label: context => ` ${context.dataset.label}: ${context.raw ? context.raw.toFixed(2) : '-'} `
+              label: function(context) {
+                let labelText = ` ${context.dataset.label}: ${context.raw ? context.raw.toFixed(2) : '-'} `;
+                if (context.datasetIndex === 0) { // Solo marcar en la serie principal (MEP o Brecha)
+                  if (context.dataIndex === maxIdx) labelText += ' 📈 (MÁX)';
+                  if (context.dataIndex === minIdx) labelText += ' 📉 (MÍN)';
+                }
+                return labelText;
+              }
             }
           }
         },

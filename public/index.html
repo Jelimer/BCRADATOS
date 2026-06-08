@@ -372,6 +372,22 @@
                   <button class="range-btn" data-days="1095">3A</button>
                   <button class="range-btn" data-days="all">Todo</button>
                 </div>
+                
+                <!-- Filtro de fechas manual -->
+                <div class="date-picker-group">
+                  <div class="date-input-wrapper">
+                    <label for="indecStartDate">Desde</label>
+                    <input type="date" id="indecStartDate" aria-label="Fecha de inicio">
+                  </div>
+                  <div class="date-input-wrapper">
+                    <label for="indecEndDate">Hasta</label>
+                    <input type="date" id="indecEndDate" aria-label="Fecha de fin">
+                  </div>
+                  <button class="btn btn-secondary btn-icon" id="applyIndecDatesBtn" title="Aplicar fechas">
+                    <i class="fa-solid fa-circle-check"></i>
+                  </button>
+                </div>
+                
                 <div class="card-actions">
                   <button class="btn btn-primary btn-sm active" id="btnShowIpc">
                     <i class="fa-solid fa-chart-line"></i> Inflación
@@ -470,6 +486,22 @@
                   <button class="range-btn" data-days="365">1A</button>
                   <button class="range-btn" data-days="all">Todo</button>
                 </div>
+                
+                <!-- Filtro de fechas manual -->
+                <div class="date-picker-group">
+                  <div class="date-input-wrapper">
+                    <label for="dolaresStartDate">Desde</label>
+                    <input type="date" id="dolaresStartDate" aria-label="Fecha de inicio">
+                  </div>
+                  <div class="date-input-wrapper">
+                    <label for="dolaresEndDate">Hasta</label>
+                    <input type="date" id="dolaresEndDate" aria-label="Fecha de fin">
+                  </div>
+                  <button class="btn btn-secondary btn-icon" id="applyDolaresDatesBtn" title="Aplicar fechas">
+                    <i class="fa-solid fa-circle-check"></i>
+                  </button>
+                </div>
+                
                 <div class="card-actions">
                   <button class="btn btn-primary btn-sm active" id="btnShowDolarChart">
                     <i class="fa-solid fa-chart-line"></i> Evolución de Precios
@@ -599,7 +631,7 @@
                     <div class="section-title-sm" style="color: var(--theme-byma);">
                       <i class="fa-solid fa-wallet"></i> Flujo de Fondos Futuro (Cash Flow)
                     </div>
-                    <div class="table-wrapper" style="max-height: 250px; margin-top: 5px;">
+                    <div class="table-wrapper" style="max-height: 450px; margin-top: 5px;">
                       <table class="data-table" style="font-size: 12.5px; width: 100%;">
                         <thead>
                           <tr>
