@@ -1263,12 +1263,17 @@ body.dark-theme .pill-btn.active {
   display: grid;
   grid-template-columns: 380px 1fr;
   gap: 24px;
-  align-items: start;
+  align-items: stretch;
+  height: calc(100vh - 180px);
+  min-height: 500px;
 }
 
 .byma-list-card {
   padding: 24px;
-  height: 650px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .byma-list-header {
@@ -1350,7 +1355,7 @@ body.dark-theme .pill-btn.active {
 
 /* Panel de Información del Bono Seleccionado */
 .byma-info-card {
-  height: 650px;
+  height: 100%;
   padding: 30px;
   overflow-y: auto;
 }
@@ -1473,6 +1478,8 @@ body.dark-theme .pill-btn.active {
 @media (max-width: 992px) {
   .byma-grid {
     grid-template-columns: 1fr;
+    height: auto;
+    min-height: auto;
   }
   .byma-list-card, .byma-info-card {
     height: auto;

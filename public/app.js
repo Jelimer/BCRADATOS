@@ -816,6 +816,22 @@ const IndecModule = {
         return entry;
       }).filter(e => e.date).sort((a, b) => a.date.localeCompare(b.date));
 
+      // Calcular variación mensual de inflación núcleo (índice 148.3_INUCLEONAL_DICI_M_19)
+      state.indec.parsedData.forEach((entry, idx, arr) => {
+        if (idx === 0) {
+          entry['148.3_INUCLEONAL_DICI_M_19_variacion'] = null;
+        } else {
+          const prev = arr[idx - 1];
+          const valPrev = prev['148.3_INUCLEONAL_DICI_M_19'];
+          const valAct = entry['148.3_INUCLEONAL_DICI_M_19'];
+          if (valPrev > 0 && valAct > 0) {
+            entry['148.3_INUCLEONAL_DICI_M_19_variacion'] = ((valAct - valPrev) / valPrev) * 100;
+          } else {
+            entry['148.3_INUCLEONAL_DICI_M_19_variacion'] = null;
+          }
+        }
+      });
+
       this.processAndRender();
       showToast('Datos del INDEC cargados con éxito.', 'success');
     } catch (error) {
@@ -884,19 +900,26 @@ const IndecModule = {
   switchMetric(metric) {
     state.indec.activeMetric = metric;
     
-    document.getElementById('btnShowIpc').className = 'btn btn-secondary btn-sm';
-    document.getElementById('btnShowEmae').className = 'btn btn-secondary btn-sm';
-    document.getElementById('btnShowSalarios').className = 'btn btn-secondary btn-sm';
+    const btnIpc = document.getElementById('btnShowIpc');
+    const btnEmae = document.getElementById('btnShowEmae');
+    const btnSalarios = document.getElementById('btnShowSalarios');
+
+    btnIpc.className = 'btn btn-secondary btn-sm';
+    btnIpc.style.backgroundColor = '';
+    btnEmae.className = 'btn btn-secondary btn-sm';
+    btnEmae.style.backgroundColor = '';
+    btnSalarios.className = 'btn btn-secondary btn-sm';
+    btnSalarios.style.backgroundColor = '';
 
     if (metric === 'ipc') {
-      document.getElementById('btnShowIpc').classList.add('active', 'btn-primary');
-      document.getElementById('btnShowIpc').style.backgroundColor = 'var(--theme-indec)';
+      btnIpc.classList.add('active', 'btn-primary');
+      btnIpc.style.backgroundColor = 'var(--theme-indec)';
     } else if (metric === 'emae') {
-      document.getElementById('btnShowEmae').classList.add('active', 'btn-primary');
-      document.getElementById('btnShowEmae').style.backgroundColor = 'var(--theme-indec)';
+      btnEmae.classList.add('active', 'btn-primary');
+      btnEmae.style.backgroundColor = 'var(--theme-indec)';
     } else {
-      document.getElementById('btnShowSalarios').classList.add('active', 'btn-primary');
-      document.getElementById('btnShowSalarios').style.backgroundColor = 'var(--theme-indec)';
+      btnSalarios.classList.add('active', 'btn-primary');
+      btnSalarios.style.backgroundColor = 'var(--theme-indec)';
     }
 
     this.processAndRender();
@@ -926,7 +949,7 @@ const IndecModule = {
         },
         {
           label: 'Inflación Núcleo (%)',
-          data: chartData.map(d => d['148.3_INUCLEONAL_DICI_M_19']),
+          data: chartData.map(d => d['148.3_INUCLEONAL_DICI_M_19_variacion']),
           borderColor: '#f43f5e',
           borderDash: [5, 5],
           backgroundColor: 'transparent',
@@ -1186,8 +1209,23 @@ const DolaresModule = {
 
   switchView(view) {
     state.dolares.activeView = view;
-    document.getElementById('btnShowDolarChart').classList.toggle('active', view === 'prices');
-    document.getElementById('btnShowBrechaChart').classList.toggle('active', view === 'brecha');
+    
+    const btnPrices = document.getElementById('btnShowDolarChart');
+    const btnBrecha = document.getElementById('btnShowBrechaChart');
+    
+    btnPrices.className = 'btn btn-secondary btn-sm';
+    btnPrices.style.backgroundColor = '';
+    btnBrecha.className = 'btn btn-secondary btn-sm';
+    btnBrecha.style.backgroundColor = '';
+
+    if (view === 'prices') {
+      btnPrices.classList.add('active', 'btn-primary');
+      btnPrices.style.backgroundColor = 'var(--theme-dolares)';
+    } else {
+      btnBrecha.classList.add('active', 'btn-primary');
+      btnBrecha.style.backgroundColor = 'var(--theme-dolares)';
+    }
+    
     this.renderChart();
   },
 
