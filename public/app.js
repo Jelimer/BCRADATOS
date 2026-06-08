@@ -796,9 +796,9 @@ const IndecModule = {
 
     try {
       // Pedimos las 4 series requeridas en una sola llamada proxy
-      // IPC General (145.3_INGNACUAL_DICI_M_38), IPC Núcleo (145.3_INGNACNCLO_DICI_M_18),
-      // RIPTE (158.1_REPTE_0_0_5), EMAE Desestacionalizado (143.3_DESESTACIOEMAE_M_28), EMAE Original (143.3_NO_SENS_EMAE_M_28)
-      const ids = '145.3_INGNACUAL_DICI_M_38,145.3_INGNACNCLO_DICI_M_18,158.1_REPTE_0_0_5,143.3_DESESTACIOEMAE_M_28,143.3_NO_SENS_EMAE_M_28';
+      // IPC General (145.3_INGNACUAL_DICI_M_38), IPC Núcleo (148.3_INUCLEONAL_DICI_M_19),
+      // RIPTE (158.1_REPTE_0_0_5), EMAE Desestacionalizado (143.3_NO_PR_2004_A_31), EMAE Original (143.3_NO_PR_2004_A_21)
+      const ids = '145.3_INGNACUAL_DICI_M_38,148.3_INUCLEONAL_DICI_M_19,158.1_REPTE_0_0_5,143.3_NO_PR_2004_A_31,143.3_NO_PR_2004_A_21';
       const response = await fetch(`/api/indec/series?ids=${ids}&limit=1000`);
       if (!response.ok) throw new Error('Error al cargar datos del INDEC');
       
@@ -860,8 +860,8 @@ const IndecModule = {
     // EMAE Actividad Económica (Calculamos variación YoY vs 12 meses atrás)
     let emaeYoY = 0;
     if (len >= 13) {
-      const emaeAct = latest['143.3_NO_SENS_EMAE_M_28'];
-      const emaePrev = data[len - 13]['143.3_NO_SENS_EMAE_M_28'];
+      const emaeAct = latest['143.3_NO_PR_2004_A_21'];
+      const emaePrev = data[len - 13]['143.3_NO_PR_2004_A_21'];
       if (emaePrev > 0) {
         emaeYoY = ((emaeAct - emaePrev) / emaePrev) * 100;
       }
@@ -926,7 +926,7 @@ const IndecModule = {
         },
         {
           label: 'Inflación Núcleo (%)',
-          data: chartData.map(d => d['145.3_INGNACNCLO_DICI_M_18']),
+          data: chartData.map(d => d['148.3_INUCLEONAL_DICI_M_19']),
           borderColor: '#f43f5e',
           borderDash: [5, 5],
           backgroundColor: 'transparent',
@@ -940,8 +940,8 @@ const IndecModule = {
       const emaeYoYList = chartData.map((d, idx) => {
         const fullIdx = state.indec.parsedData.findIndex(x => x.date === d.date);
         if (fullIdx >= 12) {
-          const act = state.indec.parsedData[fullIdx]['143.3_NO_SENS_EMAE_M_28'];
-          const prev = state.indec.parsedData[fullIdx - 12]['143.3_NO_SENS_EMAE_M_28'];
+          const act = state.indec.parsedData[fullIdx]['143.3_NO_PR_2004_A_21'];
+          const prev = state.indec.parsedData[fullIdx - 12]['143.3_NO_PR_2004_A_21'];
           return prev > 0 ? ((act - prev) / prev) * 100 : 0;
         }
         return 0;
@@ -1107,10 +1107,12 @@ const DolaresModule = {
       this.renderLiveCards();
 
       // 3. Obtener Históricos: Oficial (BCRA) e históricos de BYMA (AL30 y AL30D) para el MEP
+      const to = Math.floor(Date.now() / 1000);
+      const from = to - (90 * 24 * 60 * 60); // 90 días de historial
       const [oficialHistRes, al30HistRes, al30dHistRes] = await Promise.all([
         fetch('/api/monetarias/4'), // Oficial histórico
-        fetch('/api/byma/historico/AL30%2024HS?resolution=D'), // AL30 en Pesos
-        fetch('/api/byma/historico/AL30D%2024HS?resolution=D') // AL30 en USD
+        fetch(`/api/byma/historico/AL30%2024HS?resolution=D&from=${from}&to=${to}`), // AL30 en Pesos
+        fetch(`/api/byma/historico/AL30D%2024HS?resolution=D&from=${from}&to=${to}`) // AL30 en USD
       ]);
 
       const oficialHist = oficialHistRes.ok ? await oficialHistRes.json() : {};
@@ -1445,10 +1447,141 @@ const BymaModule = {
         document.getElementById('bonoInteres').textContent = 'Esquema de cupones no disponible.';
         dataContainer.classList.remove('hidden');
       }
+
+      // Renderizar Flujo de Fondos (Cash Flow)
+      this.renderCashFlow(bond.symbol);
     } catch (error) {
       console.error(error);
       showToast('Error al cargar la ficha del bono.', 'warning');
     }
+  },
+
+  renderCashFlow(symbol) {
+    const cashFlowBody = document.getElementById('bonoCashFlowBody');
+    cashFlowBody.innerHTML = '';
+    
+    const flows = this.calculateBonoCashFlow(symbol);
+    if (flows.length > 0) {
+      flows.forEach(f => {
+        const tr = document.createElement('tr');
+        const colorStyle = f.concepto === 'Amortización' ? 'color: var(--theme-byma); font-weight: 600;' : '';
+        tr.innerHTML = `
+          <td>${f.fecha}</td>
+          <td>${f.concepto}</td>
+          <td class="text-right font-medium" style="${colorStyle}">${f.monto}</td>
+        `;
+        cashFlowBody.appendChild(tr);
+      });
+    } else {
+      cashFlowBody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No hay cupones de cobro futuros estimados.</td></tr>';
+    }
+  },
+
+  calculateBonoCashFlow(symbol) {
+    const clean = symbol.replace(/[D|C|X|Y|Z]$/, '').toUpperCase();
+    const hoy = new Date('2026-06-08'); // Fecha actual de la sesión
+    const flows = [];
+    
+    if (clean === 'AL30' || clean === 'GD30') {
+      // AL30 / GD30: Amortizaciones semestrales del 8% y 9%, Interés step-up.
+      const cronograma = [
+        { fecha: '2026-07-09', amort: 8.0, int: 0.375 },
+        { fecha: '2027-01-09', amort: 8.0, int: 0.375 },
+        { fecha: '2027-07-09', amort: 8.0, int: 0.875 }, // Sube a 1.75% anual step-up
+        { fecha: '2028-01-09', amort: 8.0, int: 0.875 },
+        { fecha: '2028-07-09', amort: 8.5, int: 0.875 },
+        { fecha: '2029-01-09', amort: 8.5, int: 0.875 },
+        { fecha: '2029-07-09', amort: 9.0, int: 0.875 },
+        { fecha: '2030-01-09', amort: 9.0, int: 0.875 }
+      ];
+      cronograma.forEach(c => {
+        const dateObj = new Date(c.fecha);
+        if (dateObj >= hoy) {
+          const formattedDate = formatDate(c.fecha);
+          flows.push({ fecha: formattedDate, concepto: 'Interés', monto: `${c.int.toFixed(3)}%` });
+          flows.push({ fecha: formattedDate, concepto: 'Amortización', monto: `${c.amort.toFixed(1)}%` });
+        }
+      });
+    } else if (clean === 'AE38' || clean === 'GD38') {
+      // AE38 / GD38: Amortizaciones del 4.54% semestral desde Julio 2027. Interés step-up actual 4.25% anual.
+      const cronograma = [
+        { fecha: '2026-07-09', amort: 0.0, int: 2.125 },
+        { fecha: '2027-01-09', amort: 0.0, int: 2.125 },
+        { fecha: '2027-07-09', amort: 4.54, int: 2.50 }, // Tasa sube a 5% anual step-up
+        { fecha: '2028-01-09', amort: 4.54, int: 2.50 }
+      ];
+      for (let anio = 2028; anio <= 2037; anio++) {
+        cronograma.push({ fecha: `${anio}-07-09`, amort: 4.54, int: 2.50 });
+        cronograma.push({ fecha: `${anio + 1}-01-09`, amort: 4.54, int: 2.50 });
+      }
+      cronograma.forEach(c => {
+        const dateObj = new Date(c.fecha);
+        if (dateObj >= hoy) {
+          const formattedDate = formatDate(c.fecha);
+          flows.push({ fecha: formattedDate, concepto: 'Interés', monto: `${c.int.toFixed(3)}%` });
+          if (c.amort > 0) {
+            flows.push({ fecha: formattedDate, concepto: 'Amortización', monto: `${c.amort.toFixed(2)}%` });
+          }
+        }
+      });
+    } else if (clean === 'GD35' || clean === 'AL35') {
+      // AL35 / GD35: Amortización desde Julio 2028 en 15 cuotas de 6.66% y 6.7%. Interés step-up.
+      const cronograma = [
+        { fecha: '2026-07-09', amort: 0.0, int: 1.75 },
+        { fecha: '2027-01-09', amort: 0.0, int: 1.75 },
+        { fecha: '2027-07-09', amort: 0.0, int: 1.75 },
+        { fecha: '2028-01-09', amort: 0.0, int: 1.75 },
+        { fecha: '2028-07-09', amort: 6.66, int: 2.00 }
+      ];
+      for (let anio = 2028; anio <= 2034; anio++) {
+        cronograma.push({ fecha: `${anio}-07-09`, amort: 6.66, int: 2.00 });
+        cronograma.push({ fecha: `${anio + 1}-01-09`, amort: 6.66, int: 2.00 });
+      }
+      cronograma.forEach(c => {
+        const dateObj = new Date(c.fecha);
+        if (dateObj >= hoy) {
+          const formattedDate = formatDate(c.fecha);
+          flows.push({ fecha: formattedDate, concepto: 'Interés', monto: `${c.int.toFixed(3)}%` });
+          if (c.amort > 0) {
+            flows.push({ fecha: formattedDate, concepto: 'Amortización', monto: `${c.amort.toFixed(2)}%` });
+          }
+        }
+      });
+    } else if (clean === 'AL29' || clean === 'GD29') {
+      // AL29 / GD29: Amortizaciones del 10% semestral desde Julio 2025 hasta Julio 2029.
+      const cronograma = [
+        { fecha: '2026-07-09', amort: 10.0, int: 0.50 },
+        { fecha: '2027-01-09', amort: 10.0, int: 0.50 },
+        { fecha: '2027-07-09', amort: 10.0, int: 0.875 }, // Tasa sube a 1.75% anual step-up
+        { fecha: '2028-01-09', amort: 10.0, int: 0.875 },
+        { fecha: '2028-07-09', amort: 10.0, int: 0.875 },
+        { fecha: '2029-01-09', amort: 10.0, int: 0.875 },
+        { fecha: '2029-07-09', amort: 10.0, int: 0.875 }
+      ];
+      cronograma.forEach(c => {
+        const dateObj = new Date(c.fecha);
+        if (dateObj >= hoy) {
+          const formattedDate = formatDate(c.fecha);
+          flows.push({ fecha: formattedDate, concepto: 'Interés', monto: `${c.int.toFixed(3)}%` });
+          flows.push({ fecha: formattedDate, concepto: 'Amortización', monto: `${c.amort.toFixed(1)}%` });
+        }
+      });
+    }
+    
+    // Si es una letra LECAP (empieza con S)
+    if (symbol.startsWith('S') && symbol.length === 5) {
+      const bondInfo = state.byma.bonds.find(b => b.symbol === symbol);
+      if (bondInfo && bondInfo.maturityDate) {
+        const formattedDate = formatDate(bondInfo.maturityDate);
+        flows.push({
+          fecha: formattedDate,
+          concepto: 'Amortización + Interés',
+          monto: '100% (Capitalización al Vencimiento)'
+        });
+      }
+    }
+    
+    return flows;
   }
 };
 
