@@ -5,6 +5,54 @@
  * Administra dinámicamente las hojas individuales: BCRA, INDEC, Dólares y BYMA.
  */
 
+// --- PLUGIN CHART.JS: DIBUJAR ETIQUETAS MÁX/MÍN EN CANVAS ---
+const maxMinLabelPlugin = {
+  id: 'maxMinLabels',
+  afterDatasetsDraw: (chart) => {
+    const ctx = chart.ctx;
+    ctx.save();
+    
+    // Configuración de texto
+    const isDark = document.body.classList.contains('dark-theme');
+    ctx.font = 'bold 10px Inter, sans-serif';
+    ctx.fillStyle = isDark ? '#f8fafc' : '#0f172a';
+    ctx.shadowColor = isDark ? 'rgba(0, 0, 0, 0.9)' : 'rgba(255, 255, 255, 0.9)';
+    ctx.shadowBlur = 3;
+
+    chart.data.datasets.forEach((dataset, datasetIndex) => {
+      const meta = chart.getDatasetMeta(datasetIndex);
+      if (!meta.visible || dataset.type === 'bar') return; // Evitar barras o series ocultas
+      
+      const maxIdx = dataset.maxIdx;
+      const minIdx = dataset.minIdx;
+      const formatFn = dataset.formatLabel || (val => val.toFixed(1));
+
+      // Dibujar etiqueta MÁX
+      if (maxIdx !== undefined && maxIdx !== -1 && meta.data[maxIdx]) {
+        const point = meta.data[maxIdx];
+        const val = dataset.data[maxIdx];
+        if (val !== null && !isNaN(val)) {
+          const text = `MÁX: ${formatFn(val)}`;
+          const yPos = point.y - 8 < 15 ? point.y + 15 : point.y - 8;
+          ctx.fillText(text, point.x + 8, yPos);
+        }
+      }
+
+      // Dibujar etiqueta MÍN
+      if (minIdx !== undefined && minIdx !== -1 && meta.data[minIdx]) {
+        const point = meta.data[minIdx];
+        const val = dataset.data[minIdx];
+        if (val !== null && !isNaN(val)) {
+          const text = `MÍN: ${formatFn(val)}`;
+          const yPos = point.y + 15 > chart.chartArea.bottom ? point.y - 8 : point.y + 15;
+          ctx.fillText(text, point.x + 8, yPos);
+        }
+      }
+    });
+    ctx.restore();
+  }
+};
+
 // --- ESTADO GLOBAL DE LA APLICACIÓN ---
 const state = {
   activeTab: 'bcra',      // Pestaña activa principal: 'bcra', 'indec', 'dolares', 'byma'
@@ -522,7 +570,7 @@ function renderChart() {
   
   state.chart = new Chart(ctx, {
     type: state.chartType,
-    plugins: [lineShadowPlugin],
+    plugins: [lineShadowPlugin, maxMinLabelPlugin],
     data: {
       labels: labels,
       datasets: [{
@@ -537,7 +585,10 @@ function renderChart() {
         pointBackgroundColor: pointBgColors,
         pointBorderColor: pointBorderColors,
         pointBorderWidth: pointBorderWidths,
-        tension: 0.15
+        tension: 0.15,
+        maxIdx: maxIdx,
+        minIdx: minIdx,
+        formatLabel: val => formatValue(val)
       }]
     },
     options: {
@@ -1029,19 +1080,33 @@ const IndecModule = {
 
     if (state.indec.activeMetric === 'ipc') {
       const ipcData = chartData.map(d => d['145.3_INGNACUAL_DICI_M_38']);
+      const nucleoData = chartData.map(d => d['148.3_INUCLEONAL_DICI_M_19_variacion']);
       
-      // Calcular MAX y MIN
-      let maxIdx = -1, minIdx = -1, maxVal = -Infinity, minVal = Infinity;
+      // Calcular MAX y MIN General
+      let maxIdxG = -1, minIdxG = -1, maxValG = -Infinity, minValG = Infinity;
       ipcData.forEach((val, idx) => {
         if (val !== null && !isNaN(val)) {
-          if (val > maxVal) { maxVal = val; maxIdx = idx; }
-          if (val < minVal) { minVal = val; minIdx = idx; }
+          if (val > maxValG) { maxValG = val; maxIdxG = idx; }
+          if (val < minValG) { minValG = val; minIdxG = idx; }
         }
       });
 
-      const pointRadii = ipcData.map((val, idx) => (idx === maxIdx || idx === minIdx) ? 7 : (ipcData.length > 80 ? 0 : 3.5));
-      const pointBgColors = ipcData.map((val, idx) => (idx === maxIdx || idx === minIdx) ? '#ffd60a' : '#bf5af2');
-      const pointHoverRadii = ipcData.map((val, idx) => (idx === maxIdx || idx === minIdx) ? 9 : 6);
+      // Calcular MAX y MIN Núcleo
+      let maxIdxN = -1, minIdxN = -1, maxValN = -Infinity, minValN = Infinity;
+      nucleoData.forEach((val, idx) => {
+        if (val !== null && !isNaN(val)) {
+          if (val > maxValN) { maxValN = val; maxIdxN = idx; }
+          if (val < minValN) { minValN = val; minIdxN = idx; }
+        }
+      });
+
+      const pointRadiiG = ipcData.map((val, idx) => (idx === maxIdxG || idx === minIdxG) ? 7 : (ipcData.length > 80 ? 0 : 3.5));
+      const pointBgColorsG = ipcData.map((val, idx) => (idx === maxIdxG || idx === minIdxG) ? '#ffd60a' : '#bf5af2');
+      const pointHoverRadiiG = ipcData.map((val, idx) => (idx === maxIdxG || idx === minIdxG) ? 9 : 6);
+
+      const pointRadiiN = nucleoData.map((val, idx) => (idx === maxIdxN || idx === minIdxN) ? 7 : (nucleoData.length > 80 ? 0 : 3));
+      const pointBgColorsN = nucleoData.map((val, idx) => (idx === maxIdxN || idx === minIdxN) ? '#ffd60a' : '#f43f5e');
+      const pointHoverRadiiN = nucleoData.map((val, idx) => (idx === maxIdxN || idx === minIdxN) ? 9 : 5);
 
       datasets = [
         {
@@ -1052,22 +1117,32 @@ const IndecModule = {
           fill: true,
           tension: 0.15,
           borderWidth: 2,
-          pointRadius: pointRadii,
-          pointBackgroundColor: pointBgColors,
+          pointRadius: pointRadiiG,
+          pointBackgroundColor: pointBgColorsG,
           pointBorderColor: '#ffffff',
           pointBorderWidth: 1.5,
-          pointHoverRadius: pointHoverRadii
+          pointHoverRadius: pointHoverRadiiG,
+          maxIdx: maxIdxG,
+          minIdx: minIdxG,
+          formatLabel: val => val.toFixed(1) + '%'
         },
         {
           label: 'Inflación Núcleo (%)',
-          data: chartData.map(d => d['148.3_INUCLEONAL_DICI_M_19_variacion']),
+          data: nucleoData,
           borderColor: '#f43f5e',
           borderDash: [5, 5],
           backgroundColor: 'transparent',
           fill: false,
           tension: 0.15,
           borderWidth: 1.5,
-          pointRadius: chartData.length > 80 ? 0 : 3
+          pointRadius: pointRadiiN,
+          pointBackgroundColor: pointBgColorsN,
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 1.5,
+          pointHoverRadius: pointHoverRadiiN,
+          maxIdx: maxIdxN,
+          minIdx: minIdxN,
+          formatLabel: val => val.toFixed(1) + '%'
         }
       ];
     } else if (state.indec.activeMetric === 'emae') {
@@ -1102,7 +1177,10 @@ const IndecModule = {
           backgroundColor: barBgColors,
           fill: true,
           type: 'bar',
-          borderWidth: 1.5
+          borderWidth: 1.5,
+          maxIdx: maxIdx,
+          minIdx: minIdx,
+          formatLabel: val => val.toFixed(1) + '%'
         }
       ];
     } else if (state.indec.activeMetric === 'salarios') {
@@ -1132,17 +1210,30 @@ const IndecModule = {
       });
 
       // Calcular MAX y MIN para Salarios (RIPTE)
-      let maxIdx = -1, minIdx = -1, maxVal = -Infinity, minVal = Infinity;
+      let maxIdxR = -1, minIdxR = -1, maxValR = -Infinity, minValR = Infinity;
       ripteAcumulado.forEach((val, idx) => {
         if (val !== null && !isNaN(val)) {
-          if (val > maxVal) { maxVal = val; maxIdx = idx; }
-          if (val < minVal) { minVal = val; minIdx = idx; }
+          if (val > maxValR) { maxValR = val; maxIdxR = idx; }
+          if (val < minValR) { minValR = val; minIdxR = idx; }
         }
       });
 
-      const pointRadii = ripteAcumulado.map((val, idx) => (idx === maxIdx || idx === minIdx) ? 7 : (ripteAcumulado.length > 80 ? 0 : 3.5));
-      const pointBgColors = ripteAcumulado.map((val, idx) => (idx === maxIdx || idx === minIdx) ? '#ffd60a' : '#00f0ff');
-      const pointHoverRadii = ripteAcumulado.map((val, idx) => (idx === maxIdx || idx === minIdx) ? 9 : 6);
+      // Calcular MAX y MIN para Costo de Vida (IPC)
+      let maxIdxI = -1, minIdxI = -1, maxValI = -Infinity, minValI = Infinity;
+      ipcAcumulado.forEach((val, idx) => {
+        if (val !== null && !isNaN(val)) {
+          if (val > maxValI) { maxValI = val; maxIdxI = idx; }
+          if (val < minValI) { minValI = val; minIdxI = idx; }
+        }
+      });
+
+      const pointRadiiR = ripteAcumulado.map((val, idx) => (idx === maxIdxR || idx === minIdxR) ? 7 : (ripteAcumulado.length > 80 ? 0 : 3.5));
+      const pointBgColorsR = ripteAcumulado.map((val, idx) => (idx === maxIdxR || idx === minIdxR) ? '#ffd60a' : '#00f0ff');
+      const pointHoverRadiiR = ripteAcumulado.map((val, idx) => (idx === maxIdxR || idx === minIdxR) ? 9 : 6);
+
+      const pointRadiiI = ipcAcumulado.map((val, idx) => (idx === maxIdxI || idx === minIdxI) ? 7 : (ipcAcumulado.length > 80 ? 0 : 3.5));
+      const pointBgColorsI = ipcAcumulado.map((val, idx) => (idx === maxIdxI || idx === minIdxI) ? '#ffd60a' : '#bf5af2');
+      const pointHoverRadiiI = ipcAcumulado.map((val, idx) => (idx === maxIdxI || idx === minIdxI) ? 9 : 6);
 
       datasets = [
         {
@@ -1153,11 +1244,14 @@ const IndecModule = {
           fill: false,
           tension: 0.1,
           borderWidth: 2.5,
-          pointRadius: pointRadii,
-          pointBackgroundColor: pointBgColors,
+          pointRadius: pointRadiiR,
+          pointBackgroundColor: pointBgColorsR,
           pointBorderColor: '#ffffff',
           pointBorderWidth: 1.5,
-          pointHoverRadius: pointHoverRadii
+          pointHoverRadius: pointHoverRadiiR,
+          maxIdx: maxIdxR,
+          minIdx: minIdxR,
+          formatLabel: val => val.toFixed(1)
         },
         {
           label: 'Evolución del Costo de Vida IPC (Base 100)',
@@ -1167,13 +1261,21 @@ const IndecModule = {
           fill: false,
           tension: 0.1,
           borderWidth: 2.5,
-          pointRadius: chartData.length > 80 ? 0 : 3
+          pointRadius: pointRadiiI,
+          pointBackgroundColor: pointBgColorsI,
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 1.5,
+          pointHoverRadius: pointHoverRadiiI,
+          maxIdx: maxIdxI,
+          minIdx: minIdxI,
+          formatLabel: val => val.toFixed(1)
         }
       ];
     }
 
     state.indec.chart = new Chart(ctx, {
       type: 'line',
+      plugins: [maxMinLabelPlugin],
       data: { labels, datasets },
       options: {
         responsive: true,
@@ -1443,22 +1545,35 @@ const DolaresModule = {
     const labels = dates.map(d => formatDate(d));
     let datasets = [];
 
-    let maxIdx = -1, minIdx = -1, maxVal = -Infinity, minVal = Infinity;
-
     if (state.dolares.activeView === 'prices') {
       const mepPrices = filteredMep.map(d => d.value);
+      const oficialPrices = dates.map(d => oficialMap[d] || null);
       
       // Calcular MAX/MIN de Dólar MEP
+      let maxIdxM = -1, minIdxM = -1, maxValM = -Infinity, minValM = Infinity;
       mepPrices.forEach((val, idx) => {
         if (val !== null && !isNaN(val)) {
-          if (val > maxVal) { maxVal = val; maxIdx = idx; }
-          if (val < minVal) { minVal = val; minIdx = idx; }
+          if (val > maxValM) { maxValM = val; maxIdxM = idx; }
+          if (val < minValM) { minValM = val; minIdxM = idx; }
         }
       });
 
-      const pointRadii = mepPrices.map((val, idx) => (idx === maxIdx || idx === minIdx) ? 7 : (mepPrices.length > 80 ? 0 : 3.5));
-      const pointBgColors = mepPrices.map((val, idx) => (idx === maxIdx || idx === minIdx) ? '#ffd60a' : '#30d158');
-      const pointHoverRadii = mepPrices.map((val, idx) => (idx === maxIdx || idx === minIdx) ? 9 : 6);
+      // Calcular MAX/MIN de Dólar Oficial BNA
+      let maxIdxO = -1, minIdxO = -1, maxValO = -Infinity, minValO = Infinity;
+      oficialPrices.forEach((val, idx) => {
+        if (val !== null && !isNaN(val)) {
+          if (val > maxValO) { maxValO = val; maxIdxO = idx; }
+          if (val < minValO) { minValO = val; minIdxO = idx; }
+        }
+      });
+
+      const pointRadiiM = mepPrices.map((val, idx) => (idx === maxIdxM || idx === minIdxM) ? 7 : (mepPrices.length > 80 ? 0 : 3.5));
+      const pointBgColorsM = mepPrices.map((val, idx) => (idx === maxIdxM || idx === minIdxM) ? '#ffd60a' : '#30d158');
+      const pointHoverRadiiM = mepPrices.map((val, idx) => (idx === maxIdxM || idx === minIdxM) ? 9 : 6);
+
+      const pointRadiiO = oficialPrices.map((val, idx) => (idx === maxIdxO || idx === minIdxO) ? 7 : (mepPrices.length > 80 ? 0 : 3));
+      const pointBgColorsO = oficialPrices.map((val, idx) => (idx === maxIdxO || idx === minIdxO) ? '#ffd60a' : '#ffffff');
+      const pointHoverRadiiO = oficialPrices.map((val, idx) => (idx === maxIdxO || idx === minIdxO) ? 9 : 5);
 
       datasets = [
         {
@@ -1469,21 +1584,31 @@ const DolaresModule = {
           fill: true,
           tension: 0.1,
           borderWidth: 2.5,
-          pointRadius: pointRadii,
-          pointBackgroundColor: pointBgColors,
+          pointRadius: pointRadiiM,
+          pointBackgroundColor: pointBgColorsM,
           pointBorderColor: '#ffffff',
           pointBorderWidth: 1.5,
-          pointHoverRadius: pointHoverRadii
+          pointHoverRadius: pointHoverRadiiM,
+          maxIdx: maxIdxM,
+          minIdx: minIdxM,
+          formatLabel: val => '$' + formatValue(val)
         },
         {
           label: 'Dólar Oficial BNA ($)',
-          data: dates.map(d => oficialMap[d] || null),
+          data: oficialPrices,
           borderColor: '#ffffff',
           backgroundColor: 'transparent',
           fill: false,
           tension: 0.1,
           borderWidth: 2,
-          pointRadius: mepPrices.length > 80 ? 0 : 3
+          pointRadius: pointRadiiO,
+          pointBackgroundColor: pointBgColorsO,
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 1.5,
+          pointHoverRadius: pointHoverRadiiO,
+          maxIdx: maxIdxO,
+          minIdx: minIdxO,
+          formatLabel: val => '$' + formatValue(val)
         }
       ];
     } else {
@@ -1497,6 +1622,7 @@ const DolaresModule = {
       });
 
       // Calcular MAX/MIN de Brecha
+      let maxIdx = -1, minIdx = -1, maxVal = -Infinity, minVal = Infinity;
       brechaData.forEach((val, idx) => {
         if (val !== null && !isNaN(val)) {
           if (val > maxVal) { maxVal = val; maxIdx = idx; }
@@ -1521,13 +1647,17 @@ const DolaresModule = {
           pointBackgroundColor: pointBgColors,
           pointBorderColor: '#ffffff',
           pointBorderWidth: 1.5,
-          pointHoverRadius: pointHoverRadii
+          pointHoverRadius: pointHoverRadii,
+          maxIdx: maxIdx,
+          minIdx: minIdx,
+          formatLabel: val => val.toFixed(1) + '%'
         }
       ];
     }
 
     state.dolares.chart = new Chart(ctx, {
       type: 'line',
+      plugins: [maxMinLabelPlugin],
       data: { labels, datasets },
       options: {
         responsive: true,
@@ -1543,10 +1673,10 @@ const DolaresModule = {
             callbacks: {
               label: function(context) {
                 let labelText = ` ${context.dataset.label}: ${context.raw ? context.raw.toFixed(2) : '-'} `;
-                if (context.datasetIndex === 0) { // Solo marcar en la serie principal (MEP o Brecha)
-                  if (context.dataIndex === maxIdx) labelText += ' 📈 (MÁX)';
-                  if (context.dataIndex === minIdx) labelText += ' 📉 (MÍN)';
-                }
+                const maxIdx = context.dataset.maxIdx;
+                const minIdx = context.dataset.minIdx;
+                if (context.dataIndex === maxIdx) labelText += ' 📈 (MÁX)';
+                if (context.dataIndex === minIdx) labelText += ' 📉 (MÍN)';
                 return labelText;
               }
             }
