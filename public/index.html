@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BCRA | Panel de Estadísticas Monetarias</title>
+  <title>Portal Financiero Argentino | Datos y Estadísticas</title>
   <!-- SEO Meta Tags -->
-  <meta name="description" content="Visualizador dinámico e interactivo de variables y estadísticas monetarias del Banco Central de la República Argentina (BCRA).">
+  <meta name="description" content="Visualizador dinámico de variables del BCRA, inflación del INDEC, cotización de dólares financieros e información de bonos en BYMA.">
   <meta name="robots" content="index, follow">
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,45 +23,69 @@
   <!-- Contenedor Principal -->
   <div class="app-container">
     
-    <!-- Barra Lateral: Catálogo de Variables -->
+    <!-- Barra Lateral: Navegación Temática -->
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <div class="brand">
           <i class="fa-solid fa-chart-line brand-icon"></i>
           <div>
-            <h1 class="brand-title">BCRA Datos</h1>
-            <span class="brand-subtitle">Estadísticas Monetarias v4</span>
+            <h1 class="brand-title">Portal Financiero</h1>
+            <span class="brand-subtitle">Datos y Estadísticas</span>
           </div>
         </div>
         <button class="close-sidebar-btn" id="closeSidebarBtn" aria-label="Cerrar menú">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
-      
-      <!-- Buscador de Variables -->
-      <div class="search-box">
-        <i class="fa-solid fa-magnifying-glass search-icon"></i>
-        <input type="text" id="variableSearch" placeholder="Buscar variable..." aria-label="Buscar variable monetaria">
-      </div>
-      
-      <!-- Lista de Variables (se poblará dinámicamente) -->
-      <div class="variables-list-container">
-        <div id="loadingVariables" class="loading-state">
-          <div class="spinner"></div>
-          <p>Cargando catálogo del BCRA...</p>
+
+      <!-- Menú de Navegación Principal -->
+      <nav class="sidebar-nav" aria-label="Navegación principal">
+        <button class="nav-tab-btn active" data-tab="bcra">
+          <i class="fa-solid fa-building-columns"></i>
+          <span>Banco Central (BCRA)</span>
+        </button>
+        <button class="nav-tab-btn" data-tab="indec">
+          <i class="fa-solid fa-chart-area"></i>
+          <span>Inflación y Actividad</span>
+        </button>
+        <button class="nav-tab-btn" data-tab="dolares">
+          <i class="fa-solid fa-dollar-sign"></i>
+          <span>Dólares y Brechas</span>
+        </button>
+        <button class="nav-tab-btn" data-tab="byma">
+          <i class="fa-solid fa-money-bill-trend-up"></i>
+          <span>Bonos y Letras</span>
+        </button>
+      </nav>
+
+      <!-- Subpanel Dinámico para el Catálogo del BCRA (solo visible en pestaña BCRA) -->
+      <div id="bcraSubpanel" class="sidebar-subpanel">
+        <div class="subpanel-title">Catálogo BCRA</div>
+        <!-- Buscador de Variables -->
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input type="text" id="variableSearch" placeholder="Buscar variable..." aria-label="Buscar variable monetaria">
         </div>
-        <div id="errorVariables" class="error-state hidden">
-          <i class="fa-solid fa-circle-exclamation error-icon"></i>
-          <p>Error al cargar las variables.</p>
-          <button id="retryVariablesBtn" class="btn btn-sm btn-retry">Reintentar</button>
+        
+        <!-- Lista de Variables (se poblará dinámicamente) -->
+        <div class="variables-list-container">
+          <div id="loadingVariables" class="loading-state">
+            <div class="spinner"></div>
+            <p>Cargando catálogo...</p>
+          </div>
+          <div id="errorVariables" class="error-state hidden">
+            <i class="fa-solid fa-circle-exclamation error-icon"></i>
+            <p>Error al cargar catálogo.</p>
+            <button id="retryVariablesBtn" class="btn btn-sm btn-retry">Reintentar</button>
+          </div>
+          <ul class="variables-list" id="variablesList" role="listbox" aria-label="Variables monetarias disponibles">
+            <!-- Items dinámicos -->
+          </ul>
         </div>
-        <ul class="variables-list" id="variablesList" role="listbox" aria-label="Variables monetarias disponibles">
-          <!-- Items dinámicos -->
-        </ul>
       </div>
       
       <div class="sidebar-footer">
-        <p>Datos en tiempo real desde la API oficial del BCRA.</p>
+        <p>Datos en tiempo real desde APIs oficiales y BYMA.</p>
       </div>
     </aside>
     
@@ -74,7 +98,7 @@
           <button class="toggle-sidebar-btn" id="toggleSidebarBtn" aria-label="Abrir catálogo">
             <i class="fa-solid fa-bars"></i>
           </button>
-          <h2 class="section-title" id="selectedVariableNameTitle">Selecciona una Variable</h2>
+          <h2 class="section-title" id="selectedVariableNameTitle">Estadísticas Monetarias (BCRA)</h2>
         </div>
         
         <div class="top-bar-right">
@@ -89,193 +113,493 @@
       <!-- Contenedor del Dashboard -->
       <div class="dashboard-viewport" id="dashboardViewport">
         
-        <!-- Estado inicial: ninguna variable seleccionada -->
-        <div class="welcome-screen" id="welcomeScreen">
-          <div class="welcome-card">
-            <i class="fa-solid fa-chart-pie welcome-icon animate-pulse"></i>
-            <h3>Bienvenido al Panel del BCRA</h3>
-            <p>Selecciona una de las variables monetarias del panel izquierdo para explorar sus datos históricos, ver gráficos dinámicos y descargar la información.</p>
-            <button class="btn btn-primary" id="startBtn">Explorar catálogo</button>
+        <!-- ========================================== -->
+        <!-- PESTAÑA A: BANCO CENTRAL (BCRA)            -->
+        <!-- ========================================== -->
+        <div id="viewBcra" class="view-panel active">
+          <!-- Estado inicial: ninguna variable seleccionada -->
+          <div class="welcome-screen" id="welcomeScreen">
+            <div class="welcome-card">
+              <i class="fa-solid fa-chart-pie welcome-icon animate-pulse"></i>
+              <h3>Bienvenido al Panel del BCRA</h3>
+              <p>Selecciona una de las variables monetarias del panel izquierdo para explorar sus datos históricos, ver gráficos dinámicos y descargar la información.</p>
+              <button class="btn btn-primary" id="startBtn">Explorar catálogo</button>
+            </div>
           </div>
-        </div>
-        
-        <!-- Estado de carga de datos de la variable -->
-        <div class="loading-overlay hidden" id="loadingDataOverlay">
-          <div class="spinner-large"></div>
-          <p id="loadingDataText">Cargando datos históricos de la variable...</p>
-        </div>
-        
-        <!-- Panel de Datos Activo -->
-        <div class="dashboard-grid hidden" id="dashboardContent">
           
-          <!-- Fila 1: Tarjetas de Métricas Rápidas (KPIs) -->
-          <div class="kpi-row">
+          <!-- Estado de carga de datos de la variable -->
+          <div class="loading-overlay hidden" id="loadingDataOverlay">
+            <div class="spinner-large"></div>
+            <p id="loadingDataText">Cargando datos históricos de la variable...</p>
+          </div>
+          
+          <!-- Panel de Datos Activo -->
+          <div class="dashboard-grid hidden" id="dashboardContent">
             
-            <div class="kpi-card" id="kpiLatest">
-              <div class="kpi-icon-wrapper val-color">
-                <i class="fa-solid fa-sack-dollar"></i>
+            <!-- Fila 1: Tarjetas de Métricas Rápidas (KPIs) -->
+            <div class="kpi-row">
+              
+              <div class="kpi-card" id="kpiLatest">
+                <div class="kpi-icon-wrapper val-color">
+                  <i class="fa-solid fa-sack-dollar"></i>
+                </div>
+                <div class="kpi-info">
+                  <span class="kpi-label">Último Valor Registrado</span>
+                  <h4 class="kpi-value" id="latestValue">-</h4>
+                  <span class="kpi-subtext" id="latestDate">-</span>
+                </div>
               </div>
-              <div class="kpi-info">
-                <span class="kpi-label">Último Valor Registrado</span>
-                <h4 class="kpi-value" id="latestValue">-</h4>
-                <span class="kpi-subtext" id="latestDate">-</span>
+              
+              <div class="kpi-card" id="kpiChange">
+                <div class="kpi-icon-wrapper change-color" id="kpiChangeIconWrapper">
+                  <i class="fa-solid fa-percent" id="kpiChangeIcon"></i>
+                </div>
+                <div class="kpi-info">
+                  <div class="kpi-header-with-selectors">
+                    <span class="kpi-label">Rendimiento</span>
+                    <div class="kpi-period-pills" id="kpiPeriodPills">
+                      <button class="pill-btn active" data-days="30" title="Último Mes">1M</button>
+                      <button class="pill-btn" data-days="90" title="Últimos 3 Meses">3M</button>
+                      <button class="pill-btn" data-days="180" title="Últimos 6 Meses">6M</button>
+                      <button class="pill-btn" data-days="365" title="Último Año">1A</button>
+                    </div>
+                  </div>
+                  <h4 class="kpi-value" id="changeValue">-</h4>
+                  <span class="kpi-subtext" id="changePercent">-</span>
+                </div>
               </div>
+              
+              <div class="kpi-card" id="kpiMax">
+                <div class="kpi-icon-wrapper max-color">
+                  <i class="fa-solid fa-arrow-trend-up"></i>
+                </div>
+                <div class="kpi-info">
+                  <span class="kpi-label">Valor Máximo Histórico</span>
+                  <h4 class="kpi-value" id="maxValue">-</h4>
+                  <span class="kpi-subtext" id="maxDate">-</span>
+                </div>
+              </div>
+              
+              <div class="kpi-card" id="kpiMin">
+                <div class="kpi-icon-wrapper min-color">
+                  <i class="fa-solid fa-arrow-trend-down"></i>
+                </div>
+                <div class="kpi-info">
+                  <span class="kpi-label">Valor Mínimo Histórico</span>
+                  <h4 class="kpi-value" id="minValue">-</h4>
+                  <span class="kpi-subtext" id="minDate">-</span>
+                </div>
+              </div>
+              
             </div>
             
-            <div class="kpi-card" id="kpiChange">
-              <div class="kpi-icon-wrapper change-color" id="kpiChangeIconWrapper">
-                <i class="fa-solid fa-percent" id="kpiChangeIcon"></i>
+            <!-- Fila 2: Controles de Filtros y Gráfico -->
+            <div class="main-card chart-container-card">
+              
+              <div class="card-header-controls">
+                <!-- Rango rápido -->
+                <div class="quick-ranges" id="quickRanges" role="group" aria-label="Rango de fecha rápido">
+                  <button class="range-btn" data-days="30">1M</button>
+                  <button class="range-btn" data-days="90">3M</button>
+                  <button class="range-btn" data-days="180">6M</button>
+                  <button class="range-btn" data-days="365">1A</button>
+                  <button class="range-btn" data-days="1825">5A</button>
+                  <button class="range-btn active" data-days="all">Todo</button>
+                </div>
+                
+                <!-- Filtro de fechas manual -->
+                <div class="date-picker-group">
+                  <div class="date-input-wrapper">
+                    <label for="startDate">Desde</label>
+                    <input type="date" id="startDate" aria-label="Fecha de inicio">
+                  </div>
+                  <div class="date-input-wrapper">
+                    <label for="endDate">Hasta</label>
+                    <input type="date" id="endDate" aria-label="Fecha de fin">
+                  </div>
+                  <button class="btn btn-secondary btn-icon" id="applyDatesBtn" title="Aplicar fechas">
+                    <i class="fa-solid fa-circle-check"></i>
+                  </button>
+                </div>
+                
+                <!-- Acciones -->
+                <div class="card-actions">
+                  <button class="btn btn-success" id="exportCsvBtn">
+                    <i class="fa-solid fa-file-csv"></i> Exportar CSV
+                  </button>
+                </div>
               </div>
-              <div class="kpi-info">
-                <div class="kpi-header-with-selectors">
-                  <span class="kpi-label">Rendimiento</span>
-                  <div class="kpi-period-pills" id="kpiPeriodPills">
-                    <button class="pill-btn active" data-days="30" title="Último Mes">1M</button>
-                    <button class="pill-btn" data-days="90" title="Últimos 3 Meses">3M</button>
-                    <button class="pill-btn" data-days="180" title="Últimos 6 Meses">6M</button>
-                    <button class="pill-btn" data-days="365" title="Último Año">1A</button>
+              
+              <!-- Selector de tipo de gráfico y Tabs -->
+              <div class="visualization-tabs">
+                <div class="tabs">
+                  <button class="tab-btn active" data-target="tabChart" id="btnTabChart">
+                    <i class="fa-solid fa-chart-area"></i> Gráfico
+                  </button>
+                  <button class="tab-btn" data-target="tabTable" id="btnTabTable">
+                    <i class="fa-solid fa-table-list"></i> Tabla de Datos
+                  </button>
+                </div>
+                
+                <div class="chart-type-selector" id="chartTypeSelector">
+                  <button class="chart-style-btn active" data-type="line" title="Gráfico de Líneas">
+                    <i class="fa-solid fa-chart-line"></i>
+                  </button>
+                  <button class="chart-style-btn" data-type="bar" title="Gráfico de Barras">
+                    <i class="fa-solid fa-chart-bar"></i>
+                  </button>
+                </div>
+              </div>
+              
+              <!-- Contenido de las Tabs -->
+              <div class="tab-content-container">
+                
+                <!-- Tab de Gráfico -->
+                <div class="tab-panel active" id="tabChart">
+                  <div class="chart-wrapper">
+                    <canvas id="monetaryChart"></canvas>
                   </div>
                 </div>
-                <h4 class="kpi-value" id="changeValue">-</h4>
-                <span class="kpi-subtext" id="changePercent">-</span>
+                
+                <!-- Tab de Tabla -->
+                <div class="tab-panel" id="tabTable">
+                  <div class="table-wrapper">
+                    <table class="data-table" id="dataTable">
+                      <thead>
+                        <tr>
+                          <th scope="col">Fecha</th>
+                          <th scope="col" class="text-right">Valor</th>
+                          <th scope="col" class="text-right">Cambio Diario</th>
+                        </tr>
+                      </thead>
+                      <tbody id="tableBody">
+                        <!-- Filas dinámicas -->
+                      </tbody>
+                    </table>
+                  </div>
+                  <!-- Paginación de la Tabla -->
+                  <div class="table-pagination">
+                    <span id="paginationInfo">Mostrando 0-0 de 0 registros</span>
+                    <div class="pagination-controls">
+                      <button class="btn btn-sm btn-icon" id="prevPageBtn" disabled><i class="fa-solid fa-chevron-left"></i></button>
+                      <button class="btn btn-sm btn-icon" id="nextPageBtn" disabled><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+                  </div>
+                </div>
+                
               </div>
+              
             </div>
             
-            <div class="kpi-card" id="kpiMax">
-              <div class="kpi-icon-wrapper max-color">
-                <i class="fa-solid fa-arrow-trend-up"></i>
+            <!-- Fila 3: Metodología e Información Detallada -->
+            <div class="main-card info-card">
+              <div class="info-card-header">
+                <i class="fa-solid fa-circle-info info-icon"></i>
+                <h3>Metodología e Información Técnica</h3>
               </div>
-              <div class="kpi-info">
-                <span class="kpi-label">Valor Máximo Histórico</span>
-                <h4 class="kpi-value" id="maxValue">-</h4>
-                <span class="kpi-subtext" id="maxDate">-</span>
-              </div>
-            </div>
-            
-            <div class="kpi-card" id="kpiMin">
-              <div class="kpi-icon-wrapper min-color">
-                <i class="fa-solid fa-arrow-trend-down"></i>
-              </div>
-              <div class="kpi-info">
-                <span class="kpi-label">Valor Mínimo Histórico</span>
-                <h4 class="kpi-value" id="minValue">-</h4>
-                <span class="kpi-subtext" id="minDate">-</span>
+              <div class="info-card-body" id="variableDescriptionBody">
+                <p>Selecciona una variable para visualizar los detalles metodológicos del Banco Central.</p>
               </div>
             </div>
             
           </div>
-          
-          <!-- Fila 2: Controles de Filtros y Gráfico -->
-          <div class="main-card chart-container-card">
-            
-            <div class="card-header-controls">
-              <!-- Rango rápido -->
-              <div class="quick-ranges" id="quickRanges" role="group" aria-label="Rango de fecha rápido">
-                <button class="range-btn" data-days="30">1M</button>
-                <button class="range-btn" data-days="90">3M</button>
-                <button class="range-btn" data-days="180">6M</button>
-                <button class="range-btn" data-days="365">1A</button>
-                <button class="range-btn" data-days="1825">5A</button>
-                <button class="range-btn active" data-days="all">Todo</button>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- PESTAÑA B: INFLACIÓN Y ACTIVIDAD (INDEC)   -->
+        <!-- ========================================== -->
+        <div id="viewIndec" class="view-panel hidden">
+          <!-- Loader de datos de INDEC -->
+          <div class="loading-overlay hidden" id="loadingIndecOverlay">
+            <div class="spinner-large"></div>
+            <p>Obteniendo datos macroeconómicos del INDEC...</p>
+          </div>
+
+          <div class="dashboard-grid" id="indecContent">
+            <!-- Fila 1: KPIs de Inflación y Actividad -->
+            <div class="kpi-row">
+              <div class="kpi-card" id="kpiIpcMensual">
+                <div class="kpi-icon-wrapper" style="background: rgba(191, 90, 242, 0.15); color: #bf5af2;">
+                  <i class="fa-solid fa-percent"></i>
+                </div>
+                <div class="kpi-info">
+                  <span class="kpi-label">Inflación Mensual (INDEC)</span>
+                  <h4 class="kpi-value" id="ipcMensualValue">-</h4>
+                  <span class="kpi-subtext" id="ipcMensualDate">-</span>
+                </div>
               </div>
               
-              <!-- Filtro de fechas manual -->
-              <div class="date-picker-group">
-                <div class="date-input-wrapper">
-                  <label for="startDate">Desde</label>
-                  <input type="date" id="startDate" aria-label="Fecha de inicio">
+              <div class="kpi-card" id="kpiIpcAnual">
+                <div class="kpi-icon-wrapper" style="background: rgba(191, 90, 242, 0.15); color: #bf5af2;">
+                  <i class="fa-solid fa-calendar-days"></i>
                 </div>
-                <div class="date-input-wrapper">
-                  <label for="endDate">Hasta</label>
-                  <input type="date" id="endDate" aria-label="Fecha de fin">
+                <div class="kpi-info">
+                  <span class="kpi-label">Inflación Interanual (YoY)</span>
+                  <h4 class="kpi-value" id="ipcAnualValue">-</h4>
+                  <span class="kpi-subtext" id="ipcAnualDate">-</span>
                 </div>
-                <button class="btn btn-secondary btn-icon" id="applyDatesBtn" title="Aplicar fechas">
-                  <i class="fa-solid fa-circle-check"></i>
-                </button>
               </div>
-              
-              <!-- Acciones -->
-              <div class="card-actions">
-                <button class="btn btn-success" id="exportCsvBtn">
-                  <i class="fa-solid fa-file-csv"></i> Exportar CSV
-                </button>
+
+              <div class="kpi-card" id="kpiSalariosRipte">
+                <div class="kpi-icon-wrapper" style="background: rgba(0, 240, 255, 0.15); color: #00f0ff;">
+                  <i class="fa-solid fa-briefcase"></i>
+                </div>
+                <div class="kpi-info">
+                  <span class="kpi-label">Salario Real Promedio (RIPTE)</span>
+                  <h4 class="kpi-value" id="ripteValue">-</h4>
+                  <span class="kpi-subtext" id="ripteDate">-</span>
+                </div>
+              </div>
+
+              <div class="kpi-card" id="kpiEmaeActividad">
+                <div class="kpi-icon-wrapper" style="background: rgba(255, 214, 10, 0.15); color: #ffd60a;">
+                  <i class="fa-solid fa-industry"></i>
+                </div>
+                <div class="kpi-info">
+                  <span class="kpi-label">Actividad Económica (EMAE)</span>
+                  <h4 class="kpi-value" id="emaeValue">-</h4>
+                  <span class="kpi-subtext" id="emaeDate">Var. Interanual</span>
+                </div>
               </div>
             </div>
-            
-            <!-- Selector de tipo de gráfico y Tabs -->
-            <div class="visualization-tabs">
-              <div class="tabs">
-                <button class="tab-btn active" data-target="tabChart" id="btnTabChart">
-                  <i class="fa-solid fa-chart-area"></i> Gráfico
-                </button>
-                <button class="tab-btn" data-target="tabTable" id="btnTabTable">
-                  <i class="fa-solid fa-table-list"></i> Tabla de Datos
-                </button>
+
+            <!-- Fila 2: Gráfico multivariable -->
+            <div class="main-card chart-container-card">
+              <div class="card-header-controls">
+                <div class="quick-ranges" id="indecRanges">
+                  <button class="range-btn" data-days="180">6M</button>
+                  <button class="range-btn active" data-days="365">1A</button>
+                  <button class="range-btn" data-days="1095">3A</button>
+                  <button class="range-btn" data-days="all">Todo</button>
+                </div>
+                <div class="card-actions">
+                  <button class="btn btn-primary btn-sm active" id="btnShowIpc">
+                    <i class="fa-solid fa-chart-line"></i> Inflación
+                  </button>
+                  <button class="btn btn-secondary btn-sm" id="btnShowEmae">
+                    <i class="fa-solid fa-chart-bar"></i> Actividad Económica
+                  </button>
+                  <button class="btn btn-secondary btn-sm" id="btnShowSalarios">
+                    <i class="fa-solid fa-scale-balanced"></i> Salario vs Inflación
+                  </button>
+                </div>
               </div>
-              
-              <div class="chart-type-selector" id="chartTypeSelector">
-                <button class="chart-style-btn active" data-type="line" title="Gráfico de Líneas">
-                  <i class="fa-solid fa-chart-line"></i>
-                </button>
-                <button class="chart-style-btn" data-type="bar" title="Gráfico de Barras">
-                  <i class="fa-solid fa-chart-bar"></i>
-                </button>
+              <div class="chart-wrapper">
+                <canvas id="indecChart"></canvas>
               </div>
             </div>
-            
-            <!-- Contenido de las Tabs -->
-            <div class="tab-content-container">
-              
-              <!-- Tab de Gráfico -->
-              <div class="tab-panel active" id="tabChart">
-                <div class="chart-wrapper">
-                  <canvas id="monetaryChart"></canvas>
+
+            <!-- Fila 3: Información e Indicadores del INDEC -->
+            <div class="main-card info-card">
+              <div class="info-card-header">
+                <i class="fa-solid fa-circle-info info-icon" style="color: #bf5af2;"></i>
+                <h3>Metodología e Indicadores del INDEC</h3>
+              </div>
+              <div class="info-card-body">
+                <p>Los datos expuestos corresponden a las series oficiales de tiempo publicadas por el <strong>INDEC</strong> y la <strong>Secretaría de Trabajo</strong>. La inflación se calcula de acuerdo con la variación del Índice de Precios al Consumidor (IPC) de cobertura nacional. El RIPTE refleja la remuneración promedio imponible de trabajadores estables, y el EMAE funciona como un estimador mensual representativo de la evolución del PBI argentino.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- PESTAÑA C: DÓLARES Y BRECHAS               -->
+        <!-- ========================================== -->
+        <div id="viewDolares" class="view-panel hidden">
+          <!-- Loader de dólares -->
+          <div class="loading-overlay hidden" id="loadingDolaresOverlay">
+            <div class="spinner-large"></div>
+            <p>Cargando cotizaciones del mercado de cambios...</p>
+          </div>
+
+          <div class="dashboard-grid" id="dolaresContent">
+            <!-- Fila 1: Cotizaciones en tiempo real -->
+            <div class="kpi-row">
+              <div class="kpi-card card-dolar-glow" id="cardDolarOficial">
+                <div class="kpi-icon-wrapper" style="background: rgba(255, 255, 255, 0.05); color: #fff;">
+                  <i class="fa-solid fa-landmark"></i>
+                </div>
+                <div class="kpi-info">
+                  <span class="kpi-label">Dólar Oficial (BNA)</span>
+                  <h4 class="kpi-value" id="dolarOficialValue">-</h4>
+                  <span class="kpi-subtext">Venta Minorista</span>
                 </div>
               </div>
-              
-              <!-- Tab de Tabla -->
-              <div class="tab-panel" id="tabTable">
-                <div class="table-wrapper">
-                  <table class="data-table" id="dataTable">
-                    <thead>
-                      <tr>
-                        <th scope="col">Fecha</th>
-                        <th scope="col" class="text-right">Valor</th>
-                        <th scope="col" class="text-right">Cambio Diario</th>
-                      </tr>
-                    </thead>
-                    <tbody id="tableBody">
-                      <!-- Filas dinámicas -->
-                    </tbody>
-                  </table>
+
+              <div class="kpi-card card-dolar-glow" id="cardDolarMep">
+                <div class="kpi-icon-wrapper" style="background: rgba(48, 209, 88, 0.15); color: #30d158;">
+                  <i class="fa-solid fa-money-bill-transfer"></i>
                 </div>
-                <!-- Paginación de la Tabla -->
-                <div class="table-pagination">
-                  <span id="paginationInfo">Mostrando 0-0 de 0 registros</span>
-                  <div class="pagination-controls">
-                    <button class="btn btn-sm btn-icon" id="prevPageBtn" disabled><i class="fa-solid fa-chevron-left"></i></button>
-                    <button class="btn btn-sm btn-icon" id="nextPageBtn" disabled><i class="fa-solid fa-chevron-right"></i></button>
+                <div class="kpi-info">
+                  <span class="kpi-label">Dólar MEP (Bolsa)</span>
+                  <h4 class="kpi-value" id="dolarMepValue">-</h4>
+                  <span class="kpi-subtext" id="brechaMepValue">Brecha: -%</span>
+                </div>
+              </div>
+
+              <div class="kpi-card card-dolar-glow" id="cardDolarCcl">
+                <div class="kpi-icon-wrapper" style="background: rgba(48, 209, 88, 0.15); color: #30d158;">
+                  <i class="fa-solid fa-globe"></i>
+                </div>
+                <div class="kpi-info">
+                  <span class="kpi-label">Dólar CCL (Cable)</span>
+                  <h4 class="kpi-value" id="dolarCclValue">-</h4>
+                  <span class="kpi-subtext" id="brechaCclValue">Brecha: -%</span>
+                </div>
+              </div>
+
+              <div class="kpi-card card-dolar-glow" id="cardDolarBlue">
+                <div class="kpi-icon-wrapper" style="background: rgba(255, 214, 10, 0.15); color: #ffd60a;">
+                  <i class="fa-solid fa-user-shield"></i>
+                </div>
+                <div class="kpi-info">
+                  <span class="kpi-label">Dólar Blue (Informal)</span>
+                  <h4 class="kpi-value" id="dolarBlueValue">-</h4>
+                  <span class="kpi-subtext" id="brechaBlueValue">Brecha: -%</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Fila 2: Gráfico de cambio e histórico de Brechas -->
+            <div class="main-card chart-container-card">
+              <div class="card-header-controls">
+                <div class="quick-ranges" id="dolaresRanges">
+                  <button class="range-btn" data-days="30">1M</button>
+                  <button class="range-btn active" data-days="90">3M</button>
+                  <button class="range-btn" data-days="180">6M</button>
+                  <button class="range-btn" data-days="365">1A</button>
+                  <button class="range-btn" data-days="all">Todo</button>
+                </div>
+                <div class="card-actions">
+                  <button class="btn btn-primary btn-sm active" id="btnShowDolarChart">
+                    <i class="fa-solid fa-chart-line"></i> Evolución de Precios
+                  </button>
+                  <button class="btn btn-secondary btn-sm" id="btnShowBrechaChart">
+                    <i class="fa-solid fa-chart-area"></i> Brecha Cambiaria %
+                  </button>
+                </div>
+              </div>
+              <div class="chart-wrapper">
+                <canvas id="dolaresChart"></canvas>
+              </div>
+            </div>
+
+            <!-- Fila 3: Información -->
+            <div class="main-card info-card">
+              <div class="info-card-header">
+                <i class="fa-solid fa-circle-info info-icon" style="color: #30d158;"></i>
+                <h3>Mercado Cambiario y Dólares Financieros</h3>
+              </div>
+              <div class="info-card-body">
+                <p>El tipo de cambio <strong>MEP</strong> (Mercado Electrónico de Pagos) y el <strong>CCL</strong> (Contado con Liquidación) se calculan mediante la compra y venta cruzada de bonos soberanos argentinos en pesos y dólares (como el AL30 y GD30). Estas cotizaciones y brechas porcentuales frente al Dólar Oficial del BNA son indicadores de la confianza cambiaria en la economía.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- PESTAÑA D: BONOS Y LETRAS (BYMA)           -->
+        <!-- ========================================== -->
+        <div id="viewByma" class="view-panel hidden">
+          <!-- Loader de BYMA -->
+          <div class="loading-overlay hidden" id="loadingBymaOverlay">
+            <div class="spinner-large"></div>
+            <p>Descargando panel de bonos y letras de BYMA...</p>
+          </div>
+
+          <div class="byma-grid" id="bymaContent">
+            
+            <!-- Panel Izquierdo: Lista de Títulos -->
+            <div class="main-card byma-list-card">
+              <div class="byma-list-header">
+                <h3>Panel de Títulos Públicos</h3>
+                <div class="search-box byma-search">
+                  <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                  <input type="text" id="bymaSearchInput" placeholder="Filtrar por ticker (ej: AL30, TO26, S30...)" aria-label="Buscar bonos o letras">
+                </div>
+              </div>
+              <div class="byma-table-wrapper">
+                <table class="byma-table" id="bymaTable">
+                  <thead>
+                    <tr>
+                      <th scope="col">Ticker</th>
+                      <th scope="col" class="text-right">Precio ($)</th>
+                      <th scope="col" class="text-right">Var %</th>
+                      <th scope="col" class="text-right">Volumen</th>
+                    </tr>
+                  </thead>
+                  <tbody id="bymaTableBody">
+                    <!-- Filas dinámicas de bonos/letras -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Panel Derecho: Ficha Técnica Detallada -->
+            <div class="main-card byma-info-card">
+              <div class="byma-info-header" id="bymaInfoTitleWrapper">
+                <i class="fa-solid fa-money-bill-trend-up info-icon" style="color: #ffd60a;"></i>
+                <div>
+                  <h3 id="bymaBonoName">AE38</h3>
+                  <p id="bymaBonoDesc">Bono de la República Argentina 2038</p>
+                </div>
+              </div>
+              <div class="byma-info-body" id="bymaInfoBody">
+                <div class="no-selection-state" id="bymaNoSelection">
+                  <i class="fa-solid fa-arrow-left animate-bounce-horizontal"></i>
+                  <p>Selecciona una especie del panel izquierdo para analizar sus condiciones de emisión y el esquema de cupones de amortización.</p>
+                </div>
+                
+                <div class="bono-data-container hidden" id="bymaBonoData">
+                  <!-- Detalles generales -->
+                  <div class="details-grid">
+                    <div class="detail-item">
+                      <span class="detail-label">Código ISIN</span>
+                      <span class="detail-val" id="bonoIsin">-</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">Moneda de Pago</span>
+                      <span class="detail-val" id="bonoMoneda">-</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">Ley Aplicable</span>
+                      <span class="detail-val" id="bonoLey">-</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">Emisor</span>
+                      <span class="detail-val" id="bonoEmisor">-</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">Monto Emitido</span>
+                      <span class="detail-val" id="bonoMontoNominal">-</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">Monto Residual</span>
+                      <span class="detail-val" id="bonoMontoResidual">-</span>
+                    </div>
+                  </div>
+
+                  <!-- Cuadro de Amortización / Intereses -->
+                  <div class="bono-text-section">
+                    <div class="section-title-sm"><i class="fa-solid fa-clock-rotate-left"></i> Cronograma de Amortización</div>
+                    <div class="section-text-box" id="bonoAmortizacion">
+                      -
+                    </div>
+                  </div>
+
+                  <div class="bono-text-section">
+                    <div class="section-title-sm"><i class="fa-solid fa-percent"></i> Intereses y Cupones</div>
+                    <div class="section-text-box" id="bonoInteres">
+                      -
+                    </div>
                   </div>
                 </div>
               </div>
-              
             </div>
-            
+
           </div>
-          
-          <!-- Fila 3: Metodología e Información Detallada -->
-          <div class="main-card info-card">
-            <div class="info-card-header">
-              <i class="fa-solid fa-circle-info info-icon"></i>
-              <h3>Metodología e Información Técnica</h3>
-            </div>
-            <div class="info-card-body" id="variableDescriptionBody">
-              <p>Selecciona una variable para visualizar los detalles metodológicos del Banco Central.</p>
-            </div>
-          </div>
-          
         </div>
-        
+
       </div>
       
     </main>

@@ -1150,5 +1150,335 @@ body.dark-theme .pill-btn.active {
 #kpiMax:hover { border-color: rgba(16, 185, 129, 0.35); box-shadow: 0 0 25px rgba(16, 185, 129, 0.06); }
 #kpiMin:hover { border-color: rgba(239, 68, 68, 0.35); box-shadow: 0 0 25px rgba(239, 68, 68, 0.06); }
 
+/* ==========================================================================
+   NUEVOS ESTILOS - MULTI-TEMAS Y PESTAÑAS (SPA)
+   ========================================================================== */
+
+/* Colores temáticos globales */
+:root {
+  --theme-bcra: #00f0ff;
+  --theme-bcra-glow: rgba(0, 240, 255, 0.15);
+  --theme-indec: #bf5af2;
+  --theme-indec-glow: rgba(191, 90, 242, 0.15);
+  --theme-dolares: #30d158;
+  --theme-dolares-glow: rgba(48, 209, 88, 0.15);
+  --theme-byma: #ffd60a;
+  --theme-byma-glow: rgba(255, 214, 10, 0.15);
+}
+
+/* Vista paneles individuales */
+.view-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  animation: fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Navegación del sidebar */
+.sidebar-nav {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.nav-tab-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+
+.nav-tab-btn:hover {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.nav-tab-btn.active[data-tab="bcra"] { background-color: var(--theme-bcra-glow); color: var(--theme-bcra); }
+.nav-tab-btn.active[data-tab="indec"] { background-color: var(--theme-indec-glow); color: var(--theme-indec); }
+.nav-tab-btn.active[data-tab="dolares"] { background-color: var(--theme-dolares-glow); color: var(--theme-dolares); }
+.nav-tab-btn.active[data-tab="byma"] { background-color: var(--theme-byma-glow); color: var(--theme-byma); }
+
+/* Subpanels del sidebar */
+.sidebar-subpanel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+  border-top: 1px solid var(--border-color);
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; max-height: 0; }
+  to { opacity: 1; max-height: 500px; }
+}
+
+.subpanel-title {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 16px 24px 0 24px;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ==========================================================================
+   ESTILOS PESTAÑA: DÓLARES Y BRECHAS
+   ========================================================================== */
+.card-dolar-glow {
+  border: 1px solid var(--border-color);
+  transition: all var(--transition-fast);
+}
+
+#cardDolarOficial:hover { border-color: rgba(255, 255, 255, 0.4); box-shadow: 0 0 25px rgba(255, 255, 255, 0.05); }
+#cardDolarMep:hover { border-color: rgba(48, 209, 88, 0.4); box-shadow: 0 0 25px rgba(48, 209, 88, 0.08); }
+#cardDolarCcl:hover { border-color: rgba(48, 209, 88, 0.4); box-shadow: 0 0 25px rgba(48, 209, 88, 0.08); }
+#cardDolarBlue:hover { border-color: rgba(255, 214, 10, 0.4); box-shadow: 0 0 25px rgba(255, 214, 10, 0.08); }
+
+/* ==========================================================================
+   ESTILOS PESTAÑA: BYMA (Bonos y Letras)
+   ========================================================================== */
+.byma-grid {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.byma-list-card {
+  padding: 24px;
+  height: 650px;
+}
+
+.byma-list-header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.byma-list-header h3 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.byma-search {
+  padding: 0;
+}
+
+.byma-search .search-icon {
+  left: 14px;
+}
+
+.byma-search input {
+  padding-left: 38px;
+}
+
+.byma-table-wrapper {
+  overflow-y: auto;
+  flex: 1;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-primary);
+}
+
+.byma-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+
+.byma-table th {
+  background-color: var(--bg-secondary);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  font-family: var(--font-display);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.byma-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.byma-table tbody tr {
+  transition: all var(--transition-fast);
+}
+
+.byma-table tbody tr:hover td {
+  background-color: rgba(255, 214, 10, 0.05);
+  color: var(--text-primary);
+}
+
+.byma-table tbody tr.active td {
+  background-color: rgba(255, 214, 10, 0.12);
+  color: var(--theme-byma);
+  font-weight: 600;
+}
+
+/* Panel de Información del Bono Seleccionado */
+.byma-info-card {
+  height: 650px;
+  padding: 30px;
+  overflow-y: auto;
+}
+
+.byma-info-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 16px;
+}
+
+.byma-info-header .info-icon {
+  font-size: 32px;
+}
+
+.byma-info-header h3 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.byma-info-header p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.no-selection-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 450px;
+  color: var(--text-muted);
+  gap: 16px;
+  text-align: center;
+}
+
+.no-selection-state i {
+  font-size: 40px;
+}
+
+.animate-bounce-horizontal {
+  animation: bounceH 2s infinite;
+}
+
+@keyframes bounceH {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(-10px); }
+}
+
+.bono-data-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-top: 20px;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+}
+
+.detail-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.detail-val {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.bono-text-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.section-title-sm {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-text-box {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre-line;
+}
+
+/* Responsividad para BYMA */
+@media (max-width: 992px) {
+  .byma-grid {
+    grid-template-columns: 1fr;
+  }
+  .byma-list-card, .byma-info-card {
+    height: auto;
+    max-height: none;
+  }
+}
+
 
 
