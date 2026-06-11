@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Portal Financiero Argentino | Datos y Estadísticas</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📈</text></svg>">
   <!-- SEO Meta Tags -->
   <meta name="description" content="Visualizador dinámico de variables del BCRA, inflación del INDEC, cotización de dólares financieros e información de bonos en BYMA.">
   <meta name="robots" content="index, follow">
@@ -227,8 +228,8 @@
                   <button class="btn btn-success" id="exportCsvBtn">
                     <i class="fa-solid fa-file-csv"></i> Exportar CSV
                   </button>
-                  <button class="btn btn-primary" id="btnDownloadBcraChart" style="background-color: var(--primary); margin-left: 8px;">
-                    <i class="fa-solid fa-file-image"></i> Descargar PNG
+                  <button class="btn btn-primary btn-icon" id="btnDownloadBcraChart" title="Descargar PNG" style="background-color: var(--primary); margin-left: 8px;">
+                    <i class="fa-solid fa-download"></i>
                   </button>
                 </div>
               </div>
@@ -401,12 +402,12 @@
                   <button class="btn btn-secondary btn-sm" id="btnShowSalarios">
                     <i class="fa-solid fa-scale-balanced"></i> Salario vs Inflación
                   </button>
-                  <button class="btn btn-success btn-sm" id="btnDownloadIndecChart" style="margin-left: 12px; background-color: var(--success);">
-                    <i class="fa-solid fa-file-image"></i> Descargar PNG
+                  <button class="btn btn-success btn-icon" id="btnDownloadIndecChart" title="Descargar PNG" style="margin-left: 12px; background-color: var(--success);">
+                    <i class="fa-solid fa-download"></i>
                   </button>
                 </div>
               </div>
-              <div class="chart-wrapper">
+              <div class="chart-wrapper" style="height: 520px;">
                 <canvas id="indecChart"></canvas>
               </div>
             </div>
@@ -515,8 +516,8 @@
                   <button class="btn btn-secondary btn-sm" id="btnShowBrechaChart">
                     <i class="fa-solid fa-chart-area"></i> Brecha Cambiaria %
                   </button>
-                  <button class="btn btn-success btn-sm" id="btnDownloadDolaresChart" style="margin-left: 12px; background-color: var(--success);">
-                    <i class="fa-solid fa-file-image"></i> Descargar PNG
+                  <button class="btn btn-success btn-icon" id="btnDownloadDolaresChart" title="Descargar PNG" style="margin-left: 12px; background-color: var(--success);">
+                    <i class="fa-solid fa-download"></i>
                   </button>
                 </div>
               </div>

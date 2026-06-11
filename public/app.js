@@ -2173,12 +2173,15 @@ function showToast(message, type = 'success') {
   if (type === 'success') {
     DOM.toastIcon.classList.add('fa-circle-check');
     DOM.toast.style.borderLeftColor = 'var(--success)';
+    DOM.toastIcon.style.color = 'var(--success)';
   } else if (type === 'warning') {
     DOM.toastIcon.classList.add('fa-triangle-exclamation');
     DOM.toast.style.borderLeftColor = 'var(--warning)';
+    DOM.toastIcon.style.color = 'var(--warning)';
   } else {
     DOM.toastIcon.classList.add('fa-circle-exclamation');
     DOM.toast.style.borderLeftColor = 'var(--danger)';
+    DOM.toastIcon.style.color = 'var(--danger)';
   }
   
   DOM.toast.classList.remove('hidden');
