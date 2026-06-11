@@ -34,7 +34,17 @@ const maxMinLabelPlugin = {
         if (val !== null && !isNaN(val)) {
           const text = `MÁX: ${formatFn(val)}`;
           const yPos = point.y - 8 < 15 ? point.y + 15 : point.y - 8;
-          ctx.fillText(text, point.x + 8, yPos);
+          
+          const textWidth = ctx.measureText(text).width;
+          let xPos = point.x + 8;
+          let align = 'left';
+          if (point.x + 8 + textWidth > chart.width - 12) {
+            xPos = point.x - 8;
+            align = 'right';
+          }
+          
+          ctx.textAlign = align;
+          ctx.fillText(text, xPos, yPos);
         }
       }
 
@@ -45,7 +55,17 @@ const maxMinLabelPlugin = {
         if (val !== null && !isNaN(val)) {
           const text = `MÍN: ${formatFn(val)}`;
           const yPos = point.y + 15 > chart.chartArea.bottom ? point.y - 8 : point.y + 15;
-          ctx.fillText(text, point.x + 8, yPos);
+          
+          const textWidth = ctx.measureText(text).width;
+          let xPos = point.x + 8;
+          let align = 'left';
+          if (point.x + 8 + textWidth > chart.width - 12) {
+            xPos = point.x - 8;
+            align = 'right';
+          }
+          
+          ctx.textAlign = align;
+          ctx.fillText(text, xPos, yPos);
         }
       }
     });
@@ -88,6 +108,8 @@ const state = {
     chart: null,
     activeView: 'prices', // Vista del gráfico: 'prices' o 'brecha'
     days: 90,
+    tablePage: 1,
+    tablePageSize: 15
   },
 
   // Módulo BYMA
@@ -224,6 +246,17 @@ function setupEventListeners() {
   DOM_BCRA.btnTabTable.addEventListener('click', () => switchTab('tabTable'));
   DOM_BCRA.prevPageBtn.addEventListener('click', () => changeTablePage(-1));
   DOM_BCRA.nextPageBtn.addEventListener('click', () => changeTablePage(1));
+
+  // Descarga de gráficos en PNG
+  document.getElementById('btnDownloadBcraChart').addEventListener('click', () => {
+    downloadChartPNG(state.chart, `bcra_${state.selectedVariable ? (state.selectedVariable.idVariable || state.selectedVariable.id) : 'variable'}.png`);
+  });
+  document.getElementById('btnDownloadIndecChart').addEventListener('click', () => {
+    downloadChartPNG(state.indec.chart, `indec_${state.indec.activeMetric}.png`);
+  });
+  document.getElementById('btnDownloadDolaresChart').addEventListener('click', () => {
+    downloadChartPNG(state.dolares.chart, `dolares_${state.dolares.activeView}.png`);
+  });
 
   const periodPills = document.getElementById('kpiPeriodPills');
   if (periodPills) {
@@ -1331,6 +1364,7 @@ const DolaresModule = {
       document.querySelectorAll('#dolaresRanges .range-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       state.dolares.days = btn.getAttribute('data-days') === 'all' ? 'all' : parseInt(btn.getAttribute('data-days'));
+      state.dolares.tablePage = 1;
       this.renderChart();
     });
 
@@ -1338,6 +1372,10 @@ const DolaresModule = {
 
     document.getElementById('btnShowDolarChart').addEventListener('click', () => this.switchView('prices'));
     document.getElementById('btnShowBrechaChart').addEventListener('click', () => this.switchView('brecha'));
+
+    // Paginación de dólares
+    document.getElementById('btnPrevDolaresPage').addEventListener('click', () => this.changeTablePage(-1));
+    document.getElementById('btnNextDolaresPage').addEventListener('click', () => this.changeTablePage(1));
 
     await this.fetchData();
     this.initialized = true;
@@ -1356,6 +1394,7 @@ const DolaresModule = {
     }
     document.querySelectorAll('#dolaresRanges .range-btn').forEach(b => b.classList.remove('active'));
     state.dolares.days = 'manual';
+    state.dolares.tablePage = 1;
     this.renderChart();
   },
 
@@ -1502,6 +1541,7 @@ const DolaresModule = {
       btnBrecha.style.backgroundColor = 'var(--theme-dolares)';
     }
     
+    state.dolares.tablePage = 1;
     this.renderChart();
   },
 
@@ -1545,6 +1585,9 @@ const DolaresModule = {
     const dates = filteredMep.map(d => d.date);
     const oficialMap = {};
     oficialData.forEach(d => oficialMap[d.date] = d.value);
+
+    // Actualizar tabla histórica en paralelo
+    this.renderTable(dates, filteredMep, oficialMap);
 
     const labels = dates.map(d => formatDate(d));
     let datasets = [];
@@ -1703,6 +1746,106 @@ const DolaresModule = {
     state.dolares.chart.options.scales.y.grid.color = gridColor;
     state.dolares.chart.options.plugins.legend.labels.color = textColor;
     state.dolares.chart.update('none');
+  },
+
+  changeTablePage(direction) {
+    state.dolares.tablePage += direction;
+    this.renderTable();
+  },
+
+  renderTable(dates, filteredMep, oficialMap) {
+    if (!dates || !filteredMep || !oficialMap) {
+      dates = state.dolares.currentDates || [];
+      filteredMep = state.dolares.currentMep || [];
+      oficialMap = state.dolares.currentOficialMap || {};
+    } else {
+      state.dolares.currentDates = dates;
+      state.dolares.currentMep = filteredMep;
+      state.dolares.currentOficialMap = oficialMap;
+    }
+
+    const tbody = document.getElementById('dolaresTableBody');
+    const paginationInfo = document.getElementById('dolaresPaginationInfo');
+    const btnPrev = document.getElementById('btnPrevDolaresPage');
+    const btnNext = document.getElementById('btnNextDolaresPage');
+
+    tbody.innerHTML = '';
+
+    if (dates.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center">No hay registros para mostrar.</td></tr>';
+      paginationInfo.textContent = 'Mostrando 0-0 de 0 registros';
+      btnPrev.disabled = true;
+      btnNext.disabled = true;
+      return;
+    }
+
+    const sortedDates = [...dates].reverse();
+    const total = sortedDates.length;
+    const pageSize = state.dolares.tablePageSize;
+    const totalPages = Math.ceil(total / pageSize);
+
+    if (state.dolares.tablePage > totalPages) state.dolares.tablePage = totalPages;
+    if (state.dolares.tablePage < 1) state.dolares.tablePage = 1;
+
+    const startIndex = (state.dolares.tablePage - 1) * pageSize;
+    const endIndex = Math.min(startIndex + pageSize, total);
+    const pageDates = sortedDates.slice(startIndex, endIndex);
+
+    const fullMep = state.dolares.historical.mep;
+    const fullOficial = state.dolares.historical.oficial;
+
+    pageDates.forEach(date => {
+      const mepItem = filteredMep.find(d => d.date === date);
+      const mepVal = mepItem ? mepItem.value : null;
+      const oficialVal = oficialMap[date] || null;
+
+      let mepVarText = '-';
+      let mepVarClass = '';
+      if (mepVal !== null) {
+        const fullIdx = fullMep.findIndex(d => d.date === date);
+        if (fullIdx > 0) {
+          const prevVal = fullMep[fullIdx - 1].value;
+          const diff = mepVal - prevVal;
+          const diffPct = (diff / prevVal) * 100;
+          mepVarText = `${diff >= 0 ? '+' : ''}${diffPct.toFixed(2)}%`;
+          mepVarClass = diff > 0 ? 'text-success' : (diff < 0 ? 'text-danger' : '');
+        }
+      }
+
+      let oficialVarText = '-';
+      let oficialVarClass = '';
+      if (oficialVal !== null) {
+        const fullIdx = fullOficial.findIndex(d => d.date === date);
+        if (fullIdx > 0) {
+          const prevVal = fullOficial[fullIdx - 1].value;
+          const diff = oficialVal - prevVal;
+          const diffPct = (diff / prevVal) * 100;
+          oficialVarText = `${diff >= 0 ? '+' : ''}${diffPct.toFixed(2)}%`;
+          oficialVarClass = diff > 0 ? 'text-success' : (diff < 0 ? 'text-danger' : '');
+        }
+      }
+
+      let brechaText = '-';
+      if (mepVal !== null && oficialVal > 0) {
+        const brechaVal = ((mepVal - oficialVal) / oficialVal) * 100;
+        brechaText = `${brechaVal.toFixed(2)}%`;
+      }
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${formatDate(date)}</td>
+        <td class="text-right font-medium">${mepVal ? formatValue(mepVal) : '-'}</td>
+        <td class="text-right ${mepVarClass}">${mepVarText}</td>
+        <td class="text-right font-medium">${oficialVal ? formatValue(oficialVal) : '-'}</td>
+        <td class="text-right ${oficialVarClass}">${oficialVarText}</td>
+        <td class="text-right font-medium" style="color: var(--theme-dolares);">${brechaText}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    paginationInfo.textContent = `Mostrando ${startIndex + 1}-${endIndex} de ${total} registros`;
+    btnPrev.disabled = state.dolares.tablePage <= 1;
+    btnNext.disabled = endIndex >= total;
   }
 };
 
@@ -2045,4 +2188,57 @@ function showToast(message, type = 'success') {
     DOM.toast.style.opacity = '0';
     setTimeout(() => { DOM.toast.classList.add('hidden'); }, 200);
   }, 4000);
+}
+
+function downloadChartPNG(chartInstance, filename) {
+  if (!chartInstance) {
+    showToast('No hay un gráfico activo para descargar.', 'warning');
+    return;
+  }
+  
+  try {
+    const originalCanvas = chartInstance.canvas;
+    const width = originalCanvas.width;
+    const height = originalCanvas.height;
+    
+    // Crear canvas temporal
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = width;
+    tempCanvas.height = height;
+    const tempCtx = tempCanvas.getContext('2d');
+    
+    // Fondo adaptativo según tema activo
+    const isDark = document.body.classList.contains('dark-theme');
+    tempCtx.fillStyle = isDark ? '#0f172a' : '#ffffff';
+    tempCtx.fillRect(0, 0, width, height);
+    
+    // Dibujar el gráfico original en el canvas temporal
+    tempCtx.drawImage(originalCanvas, 0, 0);
+    
+    // Dibujar la marca de agua
+    tempCtx.save();
+    tempCtx.font = 'bold 16px Inter, Outfit, sans-serif';
+    tempCtx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.05)';
+    tempCtx.textAlign = 'center';
+    tempCtx.textBaseline = 'middle';
+    
+    // Rotar y colocar en el centro
+    tempCtx.translate(width / 2, height / 2);
+    tempCtx.rotate(-Math.PI / 12); // -15 grados
+    tempCtx.fillText('bcradatos.vercel.app', 0, 0);
+    tempCtx.restore();
+    
+    // Descargar imagen
+    const url = tempCanvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = url;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Imagen PNG descargada con éxito.', 'success');
+  } catch (error) {
+    console.error('Error al exportar gráfico:', error);
+    showToast('Error al generar la descarga del gráfico.', 'danger');
+  }
 }

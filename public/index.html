@@ -227,6 +227,9 @@
                   <button class="btn btn-success" id="exportCsvBtn">
                     <i class="fa-solid fa-file-csv"></i> Exportar CSV
                   </button>
+                  <button class="btn btn-primary" id="btnDownloadBcraChart" style="background-color: var(--primary); margin-left: 8px;">
+                    <i class="fa-solid fa-file-image"></i> Descargar PNG
+                  </button>
                 </div>
               </div>
               
@@ -398,6 +401,9 @@
                   <button class="btn btn-secondary btn-sm" id="btnShowSalarios">
                     <i class="fa-solid fa-scale-balanced"></i> Salario vs Inflación
                   </button>
+                  <button class="btn btn-success btn-sm" id="btnDownloadIndecChart" style="margin-left: 12px; background-color: var(--success);">
+                    <i class="fa-solid fa-file-image"></i> Descargar PNG
+                  </button>
                 </div>
               </div>
               <div class="chart-wrapper">
@@ -509,10 +515,46 @@
                   <button class="btn btn-secondary btn-sm" id="btnShowBrechaChart">
                     <i class="fa-solid fa-chart-area"></i> Brecha Cambiaria %
                   </button>
+                  <button class="btn btn-success btn-sm" id="btnDownloadDolaresChart" style="margin-left: 12px; background-color: var(--success);">
+                    <i class="fa-solid fa-file-image"></i> Descargar PNG
+                  </button>
                 </div>
               </div>
               <div class="chart-wrapper">
                 <canvas id="dolaresChart"></canvas>
+              </div>
+            </div>
+
+            <!-- Fila 2.5: Tabla Histórica de Dólares -->
+            <div class="main-card info-card" id="dolaresTableCard">
+              <div class="info-card-header">
+                <i class="fa-solid fa-table-list info-icon" style="color: #30d158;"></i>
+                <h3>Historial de Cotizaciones y Brechas</h3>
+              </div>
+              <div class="table-wrapper">
+                <table class="data-table" id="dolaresDataTable">
+                  <thead>
+                    <tr>
+                      <th scope="col">Fecha</th>
+                      <th scope="col" class="text-right">Dólar MEP ($)</th>
+                      <th scope="col" class="text-right">Var % MEP</th>
+                      <th scope="col" class="text-right">Dólar Oficial ($)</th>
+                      <th scope="col" class="text-right">Var % Oficial</th>
+                      <th scope="col" class="text-right">Brecha %</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dolaresTableBody">
+                    <!-- Filas dinámicas -->
+                  </tbody>
+                </table>
+              </div>
+              <!-- Paginación de la Tabla -->
+              <div class="table-pagination">
+                <span id="dolaresPaginationInfo">Mostrando 0-0 de 0 registros</span>
+                <div class="pagination-controls">
+                  <button class="btn btn-sm btn-icon" id="btnPrevDolaresPage" disabled><i class="fa-solid fa-chevron-left"></i></button>
+                  <button class="btn btn-sm btn-icon" id="btnNextDolaresPage" disabled><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
               </div>
             </div>
 
