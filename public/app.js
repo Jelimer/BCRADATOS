@@ -879,7 +879,11 @@ const IndecModule = {
       state.indec.parsedData = raw.data.map(row => {
         const entry = { date: row[0] };
         fields.forEach((fid, index) => {
-          entry[fid] = parseFloat(row[index + 1]);
+          let val = parseFloat(row[index + 1]);
+          if (fid === '145.3_INGNACUAL_DICI_M_38' && val !== null && !isNaN(val)) {
+            val = val * 100;
+          }
+          entry[fid] = val;
         });
         return entry;
       }).filter(e => e.date).sort((a, b) => a.date.localeCompare(b.date));
