@@ -2174,6 +2174,25 @@ const BymaModule = {
 // UTILIDADES COMPARTIDAS
 // ==========================================
 
+async function fetchWithTimeout(resource, options = {}) {
+  const { timeout = 2500 } = options;
+  
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const response = await fetch(resource, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(id);
+    return response;
+  } catch (error) {
+    clearTimeout(id);
+    throw error;
+  }
+}
+
 function formatValue(value) {
   if (isNaN(value) || value === null) return '-';
   return new Intl.NumberFormat('es-AR', {
@@ -2345,13 +2364,18 @@ const ComparadorModule = {
     loader.classList.remove('hidden');
 
     try {
-      // Intentar obtener plazos fijos reales desde el proxy
-      const pfRes = await fetch('/api/bcra-transparencia/PlazosFijos');
+      // Intentar obtener plazos fijos reales desde el proxy con timeout
+      const pfRes = await fetchWithTimeout('/api/bcra-transparencia/PlazosFijos', { timeout: 2500 });
       if (pfRes.ok) {
         const pfData = await pfRes.json();
-        this.data.plazosFijos = pfData.results || pfData.data || pfData || [];
+        const rawList = pfData.results || pfData.data || pfData;
+        if (Array.isArray(rawList)) {
+          this.data.plazosFijos = rawList;
+        } else {
+          throw new Error('Formato inválido');
+        }
       } else {
-        throw new Error('Fallback plazos fijos');
+        throw new Error('Error respuesta');
       }
     } catch (e) {
       console.warn('Usando contingencia para datos de plazos fijos del comparador:', e.message);
@@ -2359,13 +2383,18 @@ const ComparadorModule = {
     }
 
     try {
-      // Intentar obtener comisiones reales
-      const comRes = await fetch('/api/bcra-transparencia/CajasAhorros');
+      // Intentar obtener comisiones reales con timeout
+      const comRes = await fetchWithTimeout('/api/bcra-transparencia/CajasAhorros', { timeout: 2500 });
       if (comRes.ok) {
         const comData = await comRes.json();
-        this.data.comisiones = comData.results || comData.data || comData || [];
+        const rawList = comData.results || comData.data || comData;
+        if (Array.isArray(rawList)) {
+          this.data.comisiones = rawList;
+        } else {
+          throw new Error('Formato inválido');
+        }
       } else {
-        throw new Error('Fallback comisiones');
+        throw new Error('Error respuesta');
       }
     } catch (e) {
       console.warn('Usando contingencia para comisiones bancarias:', e.message);
@@ -2373,13 +2402,18 @@ const ComparadorModule = {
     }
 
     try {
-      // Intentar obtener préstamos reales
-      const prestRes = await fetch('/api/bcra-transparencia/PrestamosPersonales');
+      // Intentar obtener préstamos reales con timeout
+      const prestRes = await fetchWithTimeout('/api/bcra-transparencia/PrestamosPersonales', { timeout: 2500 });
       if (prestRes.ok) {
         const prestData = await prestRes.json();
-        this.data.prestamos = prestData.results || prestData.data || prestData || [];
+        const rawList = prestData.results || prestData.data || prestData;
+        if (Array.isArray(rawList)) {
+          this.data.prestamos = rawList;
+        } else {
+          throw new Error('Formato inválido');
+        }
       } else {
-        throw new Error('Fallback préstamos');
+        throw new Error('Error respuesta');
       }
     } catch (e) {
       console.warn('Usando contingencia para tasas de préstamos personales:', e.message);
@@ -2389,6 +2423,7 @@ const ComparadorModule = {
     loader.classList.add('hidden');
     this.render();
   },
+
 
   render() {
     const filterText = document.getElementById('bankSearchInput').value.toLowerCase().trim();
@@ -2624,8 +2659,8 @@ const ConsultasModule = {
     loader.classList.remove('hidden');
 
     try {
-      // 1. Intentar llamar al proxy real
-      const res = await fetch(`/api/bcra-deudores/Deudas/${cuit}`);
+      // 1. Intentar llamar al proxy real con timeout
+      const res = await fetchWithTimeout(`/api/bcra-deudores/Deudas/${cuit}`, { timeout: 2500 });
       if (res.ok) {
         const data = await res.json();
         this.renderDeudorResults(data, cuit);
@@ -2655,7 +2690,8 @@ const ConsultasModule = {
     const totalDeuda = parseFloat(data.totalDeuda || data.montoTotal || 0);
     const cantBancos = parseInt(data.cantidadEntidades || data.entidades || 1);
     const chequesRech = parseInt(data.chequesRechazados || data.cheques || 0);
-    const deudas = data.deudas || data.results || data.data || [];
+    const deudasRaw = data.deudas || data.results || data.data || [];
+    const deudas = Array.isArray(deudasRaw) ? deudasRaw : [];
 
     // Mapear elementos HTML
     document.getElementById('deudorNombre').textContent = nombre.toUpperCase();
@@ -2678,6 +2714,7 @@ const ConsultasModule = {
     badgeText.textContent = descripciones[peorSit] || `SITUACION ${peorSit}`;
 
     document.getElementById('deudorPeorSituacion').textContent = peorSit;
+
     document.getElementById('deudorPeorSituacion').style.color = this.getColorForSituacion(peorSit);
     document.getElementById('deudorTotalDeuda').textContent = `$${formatValueCompact(totalDeuda * 1000)}`; // Deuda en miles
     document.getElementById('deudorCantEntidades').textContent = cantBancos;
@@ -2774,8 +2811,8 @@ const ConsultasModule = {
     loader.classList.remove('hidden');
 
     try {
-      // Llamar al proxy real de cheques denunciados
-      const res = await fetch(`/api/bcra-cheques/denunciados?codigoEntidad=${banco}&numeroCheque=${numero}`);
+      // Llamar al proxy real de cheques denunciados con timeout
+      const res = await fetchWithTimeout(`/api/bcra-cheques/denunciados?codigoEntidad=${banco}&numeroCheque=${numero}`, { timeout: 2500 });
       if (res.ok) {
         const data = await res.json();
         this.renderChequeResults(data, banco, numero);
@@ -2798,6 +2835,7 @@ const ConsultasModule = {
       }, 700);
       return;
     }
+
 
     loader.classList.add('hidden');
   },
