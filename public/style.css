@@ -1215,6 +1215,8 @@ body.dark-theme .pill-btn.active {
 .nav-tab-btn.active[data-tab="indec"] { background-color: var(--theme-indec-glow); color: var(--theme-indec); }
 .nav-tab-btn.active[data-tab="dolares"] { background-color: var(--theme-dolares-glow); color: var(--theme-dolares); }
 .nav-tab-btn.active[data-tab="byma"] { background-color: var(--theme-byma-glow); color: var(--theme-byma); }
+.nav-tab-btn.active[data-tab="comparador"] { background-color: var(--theme-bcra-glow); color: var(--theme-bcra); }
+.nav-tab-btn.active[data-tab="consultas"] { background-color: var(--theme-indec-glow); color: var(--theme-indec); }
 
 /* Subpanels del sidebar */
 .sidebar-subpanel {

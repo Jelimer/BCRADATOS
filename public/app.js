@@ -2369,11 +2369,14 @@ const ComparadorModule = {
       const pfRes = await fetchWithTimeout('/api/bcra-transparencia/PlazosFijos', { timeout: 2500 });
       if (pfRes.ok) {
         const pfData = await pfRes.json();
+        if (pfData && pfData.error) {
+          throw new Error(pfData.details || 'Error en respuesta del proxy');
+        }
         const rawList = pfData.results || pfData.data || pfData;
-        if (Array.isArray(rawList)) {
+        if (Array.isArray(rawList) && rawList.length > 0) {
           this.data.plazosFijos = rawList;
         } else {
-          throw new Error('Formato inválido');
+          throw new Error('Datos vacíos o formato inválido');
         }
       } else {
         throw new Error('Error respuesta');
@@ -2388,11 +2391,14 @@ const ComparadorModule = {
       const comRes = await fetchWithTimeout('/api/bcra-transparencia/CajasAhorros', { timeout: 2500 });
       if (comRes.ok) {
         const comData = await comRes.json();
+        if (comData && comData.error) {
+          throw new Error(comData.details || 'Error en respuesta del proxy');
+        }
         const rawList = comData.results || comData.data || comData;
-        if (Array.isArray(rawList)) {
+        if (Array.isArray(rawList) && rawList.length > 0) {
           this.data.comisiones = rawList;
         } else {
-          throw new Error('Formato inválido');
+          throw new Error('Datos vacíos o formato inválido');
         }
       } else {
         throw new Error('Error respuesta');
@@ -2407,11 +2413,14 @@ const ComparadorModule = {
       const prestRes = await fetchWithTimeout('/api/bcra-transparencia/PrestamosPersonales', { timeout: 2500 });
       if (prestRes.ok) {
         const prestData = await prestRes.json();
+        if (prestData && prestData.error) {
+          throw new Error(prestData.details || 'Error en respuesta del proxy');
+        }
         const rawList = prestData.results || prestData.data || prestData;
-        if (Array.isArray(rawList)) {
+        if (Array.isArray(rawList) && rawList.length > 0) {
           this.data.prestamos = rawList;
         } else {
-          throw new Error('Formato inválido');
+          throw new Error('Datos vacíos o formato inválido');
         }
       } else {
         throw new Error('Error respuesta');
@@ -2664,6 +2673,9 @@ const ConsultasModule = {
       const res = await fetchWithTimeout(`/api/bcra-deudores/Deudas/${cuit}`, { timeout: 2500 });
       if (res.ok) {
         const data = await res.json();
+        if (data && data.error) {
+          throw new Error(data.details || 'Error en respuesta del proxy');
+        }
         this.renderDeudorResults(data, cuit);
       } else {
         throw new Error('Fallo de red o CUIT inexistente');
@@ -2816,6 +2828,9 @@ const ConsultasModule = {
       const res = await fetchWithTimeout(`/api/bcra-cheques/denunciados?codigoEntidad=${banco}&numeroCheque=${numero}`, { timeout: 2500 });
       if (res.ok) {
         const data = await res.json();
+        if (data && data.error) {
+          throw new Error(data.details || 'Error en respuesta del proxy');
+        }
         this.renderChequeResults(data, banco, numero);
       } else {
         throw new Error('Fallo de red de cheques');
