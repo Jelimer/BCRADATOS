@@ -2365,8 +2365,8 @@ const ComparadorModule = {
     loader.classList.remove('hidden');
 
     try {
-      // Intentar obtener plazos fijos reales desde el proxy con timeout
-      const pfRes = await fetchWithTimeout('/api/bcra-transparencia/PlazosFijos', { timeout: 2500 });
+      // Intentar obtener plazos fijos reales desde el proxy con timeout (4000ms)
+      const pfRes = await fetchWithTimeout('/api/bcra-transparencia/PlazosFijos', { timeout: 4000 });
       if (pfRes.ok) {
         const pfData = await pfRes.json();
         if (pfData && pfData.error) {
@@ -2387,8 +2387,8 @@ const ComparadorModule = {
     }
 
     try {
-      // Intentar obtener comisiones reales con timeout
-      const comRes = await fetchWithTimeout('/api/bcra-transparencia/CajasAhorros', { timeout: 2500 });
+      // Intentar obtener comisiones reales (Paquetes de Productos) con timeout (4000ms)
+      const comRes = await fetchWithTimeout('/api/bcra-transparencia/PaquetesProductos', { timeout: 4000 });
       if (comRes.ok) {
         const comData = await comRes.json();
         if (comData && comData.error) {
@@ -2409,8 +2409,8 @@ const ComparadorModule = {
     }
 
     try {
-      // Intentar obtener préstamos reales con timeout
-      const prestRes = await fetchWithTimeout('/api/bcra-transparencia/Prestamos/Personales', { timeout: 2500 });
+      // Intentar obtener préstamos reales con timeout (4000ms)
+      const prestRes = await fetchWithTimeout('/api/bcra-transparencia/Prestamos/Personales', { timeout: 4000 });
       if (prestRes.ok) {
         const prestData = await prestRes.json();
         if (prestData && prestData.error) {
@@ -2452,12 +2452,16 @@ const ComparadorModule = {
     tbody.innerHTML = '';
 
     const list = this.data.plazosFijos.filter(item => {
-      const name = (item.entidad || item.descripcion || '').toLowerCase();
+      const name = (item.descripcionEntidad || item.entidad || item.descripcion || '').toLowerCase();
       return name.includes(filterText);
     });
 
-    // Ordenar por TNA de mayor a menor
-    list.sort((a, b) => parseFloat(b.tna || 0) - parseFloat(a.tna || 0));
+    // Ordenar por TNA / TEA de mayor a menor
+    list.sort((a, b) => {
+      const valB = parseFloat(b.tasaEfectivaAnualMinima || b.tna || 0);
+      const valA = parseFloat(a.tasaEfectivaAnualMinima || a.tna || 0);
+      return valB - valA;
+    });
 
     if (list.length === 0) {
       tbody.innerHTML = '<tr><td colspan="4" class="text-center">No se encontraron entidades registradas.</td></tr>';
@@ -2465,14 +2469,14 @@ const ComparadorModule = {
     }
 
     list.forEach(item => {
-      const tna = parseFloat(item.tna || 0);
+      const tna = parseFloat(item.tasaEfectivaAnualMinima || item.tna || 0);
       const rendimientoDirecto = tna / 12; // Estimado mensual directo
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td class="font-medium">${item.entidad || item.descripcion || 'Entidad no informada'}</td>
+        <td class="font-medium">${item.descripcionEntidad || item.entidad || item.descripcion || 'Entidad no informada'}</td>
         <td class="text-right font-medium text-success" style="font-size: 14.5px;">${tna.toFixed(2)}%</td>
         <td class="text-right">${rendimientoDirecto.toFixed(2)}%</td>
-        <td class="text-right" style="color: var(--text-secondary);">${item.canal || 'Digital / Home Banking'}</td>
+        <td class="text-right" style="color: var(--text-secondary);">${item.canalConstitucion || item.canal || 'Digital / Home Banking'}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -2483,7 +2487,7 @@ const ComparadorModule = {
     tbody.innerHTML = '';
 
     const list = this.data.comisiones.filter(item => {
-      const name = (item.entidad || item.descripcion || '').toLowerCase();
+      const name = (item.descripcionEntidad || item.entidad || item.descripcion || '').toLowerCase();
       return name.includes(filterText);
     });
 
@@ -2493,14 +2497,14 @@ const ComparadorModule = {
     }
 
     list.forEach(item => {
-      const mensual = parseFloat(item.mensual || item.mantenimiento || 0);
+      const mensual = parseFloat(item.comisionMaximaMantenimiento || item.mensual || item.mantenimiento || 0);
       const anual = parseFloat(item.anual || item.renovacion || 0);
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td class="font-medium">${item.entidad || 'Banco Comercial'}</td>
-        <td>${item.producto || item.paquete || 'Caja de Ahorros / Paquete'}</td>
+        <td class="font-medium">${item.descripcionEntidad || item.entidad || 'Banco Comercial'}</td>
+        <td>${item.nombreCompleto || item.nombreCorto || item.producto || item.paquete || 'Servicio de Cuentas / Paquete'}</td>
         <td class="text-right font-medium">${mensual > 0 ? '$' + formatValue(mensual) : 'Bonificado / Gratis'}</td>
-        <td class="text-right">${anual > 0 ? '$' + formatValue(anual) : 'Gratis'}</td>
+        <td class="text-right">${anual > 0 ? '$' + formatValue(anual) : 'Gratis / N/A'}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -2511,11 +2515,15 @@ const ComparadorModule = {
     tbody.innerHTML = '';
 
     const list = this.data.prestamos.filter(item => {
-      const name = (item.entidad || item.descripcion || '').toLowerCase();
+      const name = (item.descripcionEntidad || item.entidad || item.descripcion || '').toLowerCase();
       return name.includes(filterText);
     });
 
-    list.sort((a, b) => parseFloat(a.tna || a.tnaPromedio || 0) - parseFloat(b.tna || b.tnaPromedio || 0));
+    list.sort((a, b) => {
+      const valA = parseFloat(a.tasaEfectivaAnualMaxima || a.tna || a.tnaPromedio || 0);
+      const valB = parseFloat(b.tasaEfectivaAnualMaxima || b.tna || b.tnaPromedio || 0);
+      return valA - valB;
+    });
 
     if (list.length === 0) {
       tbody.innerHTML = '<tr><td colspan="4" class="text-center">No se encontraron líneas de préstamos.</td></tr>';
@@ -2523,14 +2531,15 @@ const ComparadorModule = {
     }
 
     list.forEach(item => {
-      const tna = parseFloat(item.tna || item.tnaPromedio || 0);
-      const cft = parseFloat(item.cft || item.cftMaximo || 0);
+      const tna = parseFloat(item.tasaEfectivaAnualMaxima || item.tna || item.tnaPromedio || 0);
+      const cft = parseFloat(item.costoFinancieroEfectivoTotalMaximo || item.cft || item.cftMaximo || 0);
+      const plazoVal = item.plazoMaximoOtorgable ? `${item.plazoMaximoOtorgable} meses` : (item.plazo || 'Hasta 60 meses');
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td class="font-medium">${item.entidad || 'Entidad Financiera'}</td>
+        <td class="font-medium">${item.descripcionEntidad || item.entidad || 'Entidad Financiera'}</td>
         <td class="text-right font-medium text-warning">${tna.toFixed(2)}%</td>
         <td class="text-right font-medium text-danger">${cft > 0 ? cft.toFixed(2) + '%' : '-'}</td>
-        <td class="text-right" style="color: var(--text-secondary);">${item.plazo || 'Hasta 60 meses'}</td>
+        <td class="text-right" style="color: var(--text-secondary);">${plazoVal}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -2669,25 +2678,29 @@ const ConsultasModule = {
     loader.classList.remove('hidden');
 
     try {
-      // 1. Intentar llamar al proxy real con timeout
-      const res = await fetchWithTimeout(`/api/bcra-deudores/Deudas/${cuit}`, { timeout: 2500 });
+      // 1. Intentar llamar al proxy real con timeout aumentado a 5000ms
+      const res = await fetchWithTimeout(`/api/bcra-deudores/Deudas/${cuit}`, { timeout: 5000 });
       if (res.ok) {
         const data = await res.json();
         if (data && data.error) {
           throw new Error(data.details || 'Error en respuesta del proxy');
         }
+        // Marcar explícitamente como NO simulado
+        data.isSimulado = false;
         this.renderDeudorResults(data, cuit);
       } else {
         throw new Error('Fallo de red o CUIT inexistente');
       }
     } catch (error) {
       console.warn('Usando contingencia para consulta de Central de Deudores:', error.message);
-      // Simular resultado realista según el CUIT
+      // Simular resultado realista según el CUIT y marcar como simulado
       const simulado = this.getSimulatedDeudor(cuit);
+      simulado.isSimulado = true;
+      
       setTimeout(() => {
         this.renderDeudorResults(simulado, cuit);
         loader.classList.add('hidden');
-      }, 800);
+      }, 600);
       return;
     }
 
@@ -2696,15 +2709,74 @@ const ConsultasModule = {
 
   renderDeudorResults(data, cuit) {
     const resultsContainer = document.getElementById('deudoresResultContainer');
+    const simulationAlert = document.getElementById('deudorSimulationAlert');
     
-    // Extraer campos principales
-    const nombre = data.denominacion || data.nombre || data.razonSocial || 'CONTRIBUYENTE SIMULADO S.A.';
-    const peorSit = parseInt(data.peorSituacion || data.situacionMax || 1);
-    const totalDeuda = parseFloat(data.totalDeuda || data.montoTotal || 0);
-    const cantBancos = parseInt(data.cantidadEntidades || data.entidades || 1);
-    const chequesRech = parseInt(data.chequesRechazados || data.cheques || 0);
-    const deudasRaw = data.deudas || data.results || data.data || [];
-    const deudas = Array.isArray(deudasRaw) ? deudasRaw : [];
+    // Configurar visibilidad del banner de simulación
+    if (data.isSimulado) {
+      simulationAlert.classList.remove('hidden');
+    } else {
+      simulationAlert.classList.add('hidden');
+    }
+
+    let nombre = 'DESCONOCIDO';
+    let peorSit = 1;
+    let totalDeuda = 0;
+    let cantBancos = 0;
+    let chequesRech = 0;
+    let deudas = [];
+
+    if (data.isSimulado) {
+      // Formato para datos simulados
+      nombre = data.denominacion || 'CONTRIBUYENTE SIMULADO S.A.';
+      peorSit = parseInt(data.peorSituacion || 1);
+      cantBancos = parseInt(data.cantidadEntidades || 1);
+      chequesRech = parseInt(data.chequesRechazados || 0);
+      deudas = (data.deudas || []).map(d => ({
+        entidad: d.entidad || 'Entidad Bancaria',
+        monto: parseFloat(d.monto || 0) * 1000, // Convertimos a pesos completos
+        situacion: parseInt(d.situacion || 1),
+        periodo: d.periodo || 'Último Informado'
+      }));
+      totalDeuda = parseFloat(data.totalDeuda || 0) * 1000; // En pesos completos
+    } else {
+      // Formato para la respuesta real del BCRA:
+      // { results: { identificacion, denominacion, periodos: [ { periodo, entidades: [ { entidad, situacion, monto } ] } ] } }
+      const results = data.results || {};
+      nombre = results.denominacion || 'NO IDENTIFICADO';
+      
+      const periodos = results.periodos || [];
+      if (periodos.length > 0) {
+        // Tomamos el período más reciente (índice 0)
+        const periodoMasReciente = periodos[0];
+        const entidades = periodoMasReciente.entidades || [];
+        
+        cantBancos = entidades.length;
+        deudas = entidades.map(ent => {
+          const sit = parseInt(ent.situacion || 1);
+          if (sit > peorSit) {
+            peorSit = sit;
+          }
+          // El monto de la API del BCRA viene expresado en miles de pesos. Convertimos a pesos.
+          const montoEnPesos = parseFloat(ent.monto || 0) * 1000;
+          totalDeuda += montoEnPesos;
+
+          // Formatear periodo del formato "YYYYMM" (ej: "202512") a "MM/YYYY"
+          let perFormateado = periodoMasReciente.periodo || '';
+          if (perFormateado.length === 6) {
+            perFormateado = `${perFormateado.slice(4)}/${perFormateado.slice(0, 4)}`;
+          }
+
+          return {
+            entidad: ent.entidad || 'Entidad Financiera',
+            monto: montoEnPesos,
+            situacion: sit,
+            periodo: perFormateado
+          };
+        });
+      }
+      // Cheques rechazados no están incluidos directamente en esta consulta de deudas
+      chequesRech = 0;
+    }
 
     // Mapear elementos HTML
     document.getElementById('deudorNombre').textContent = nombre.toUpperCase();
@@ -2727,12 +2799,14 @@ const ConsultasModule = {
     badgeText.textContent = descripciones[peorSit] || `SITUACION ${peorSit}`;
 
     document.getElementById('deudorPeorSituacion').textContent = peorSit;
-
     document.getElementById('deudorPeorSituacion').style.color = this.getColorForSituacion(peorSit);
-    document.getElementById('deudorTotalDeuda').textContent = `$${formatValueCompact(totalDeuda * 1000)}`; // Deuda en miles
+    
+    // Formatear y mostrar total de deuda
+    document.getElementById('deudorTotalDeuda').textContent = `$${formatValueCompact(totalDeuda)}`;
     document.getElementById('deudorCantEntidades').textContent = cantBancos;
-    document.getElementById('deudorChequesRechazados').textContent = chequesRech;
-    document.getElementById('deudorChequesRechazados').style.color = chequesRech > 0 ? '#ff453a' : '#30d158';
+    
+    document.getElementById('deudorChequesRechazados').textContent = data.isSimulado ? chequesRech : 'Ver Tab Cheques';
+    document.getElementById('deudorChequesRechazados').style.color = (chequesRech > 0) ? '#ff453a' : 'var(--text-secondary)';
 
     // Poblar tabla de deudas
     const tbody = document.getElementById('deudasTableBody');
@@ -2742,20 +2816,20 @@ const ConsultasModule = {
       tbody.innerHTML = '<tr><td colspan="4" class="text-center">No registra deudas activas informadas en el sistema financiero.</td></tr>';
     } else {
       deudas.forEach(d => {
-        const sit = parseInt(d.situacion || d.peorSituacion || 1);
+        const sit = parseInt(d.situacion || 1);
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td class="font-medium">${d.entidad || d.banco || 'Entidad Bancaria'}</td>
-          <td class="text-right font-medium">$${formatValue(parseFloat(d.monto || d.deuda || 0))}</td>
+          <td class="font-medium">${d.entidad || 'Entidad Bancaria'}</td>
+          <td class="text-right font-medium">$${formatValue(d.monto)}</td>
           <td class="text-center"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${this.getColorForSituacion(sit)}; margin-right:6px;"></span>${sit}</td>
-          <td class="text-right" style="color: var(--text-secondary);">${d.periodo || d.fecha || 'Último Informado'}</td>
+          <td class="text-right" style="color: var(--text-secondary);">${d.periodo}</td>
         `;
         tbody.appendChild(tr);
       });
     }
 
     resultsContainer.classList.remove('hidden');
-    showToast('Informe crediticio consolidado cargado.', 'success');
+    showToast(data.isSimulado ? 'Informe consolidado de ejemplo cargado.' : 'Informe crediticio consolidado oficial cargado.', 'success');
   },
 
   getColorForSituacion(sit) {
@@ -2777,9 +2851,9 @@ const ConsultasModule = {
     if (esPar) {
       // Deudor saludable
       return {
-        denominacion: 'JUAN ESTEBAN RODRIGUEZ',
+        denominacion: 'JUAN ESTEBAN RODRIGUEZ (Simulado)',
         peorSituacion: 1,
-        totalDeuda: 1420.50, // 1.4 millones
+        totalDeuda: 1420.50, // 1420.5 miles = 1.42 millones
         cantidadEntidades: 2,
         chequesRechazados: 0,
         deudas: [
@@ -2790,9 +2864,9 @@ const ConsultasModule = {
     } else {
       // Deudor con morosidad
       return {
-        denominacion: 'ALBERTO MARIO PALACIOS',
+        denominacion: 'ALBERTO MARIO PALACIOS (Simulado)',
         peorSituacion: 3,
-        totalDeuda: 9480.00, // 9.4 millones
+        totalDeuda: 9480.00, // 9.48 millones
         cantidadEntidades: 3,
         chequesRechazados: 2,
         deudas: [
@@ -2824,21 +2898,27 @@ const ConsultasModule = {
     loader.classList.remove('hidden');
 
     try {
-      // Llamar al proxy real de cheques denunciados con timeout
-      const res = await fetchWithTimeout(`/api/bcra-cheques/denunciados?codigoEntidad=${banco}&numeroCheque=${numero}`, { timeout: 2500 });
+      // Llamar al proxy real de cheques denunciados con variables de ruta y timeout 4000ms
+      const res = await fetchWithTimeout(`/api/bcra-cheques/denunciados/${banco}/${numero}`, { timeout: 4000 });
       if (res.ok) {
         const data = await res.json();
         if (data && data.error) {
           throw new Error(data.details || 'Error en respuesta del proxy');
         }
-        this.renderChequeResults(data, banco, numero);
+        // Ajustar formato del BCRA
+        const resultItem = data.results || data;
+        this.renderChequeResults({
+          denunciado: resultItem.denunciado || false,
+          motivo: resultItem.motivo || 'Sin novedad',
+          bancoName: select.options[select.selectedIndex].text
+        }, banco, numero);
       } else {
         throw new Error('Fallo de red de cheques');
       }
     } catch (e) {
       console.warn('Usando contingencia para consulta de cheques denunciados:', e.message);
       
-      // Simulación: Si el número de cheque termina en 9 (para demostración/pruebas), lo marcamos como denunciado.
+      // Simulación: Si el número de cheque termina en 9, lo marcamos como denunciado.
       const simuladoDenunciado = numero.endsWith('9');
       
       setTimeout(() => {
@@ -2848,10 +2928,9 @@ const ConsultasModule = {
           bancoName: select.options[select.selectedIndex].text
         }, banco, numero);
         loader.classList.add('hidden');
-      }, 700);
+      }, 600);
       return;
     }
-
 
     loader.classList.add('hidden');
   },
