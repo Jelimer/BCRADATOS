@@ -1442,13 +1442,14 @@ const DolaresModule = {
         const cambRes = await fetch('/api/bcra-cambiarias/Cotizaciones');
         if (cambRes.ok) {
           const cambData = await cambRes.json();
-          const results = cambData.results || cambData.data || cambData || [];
+          const rawResults = cambData.results || cambData.data || cambData;
+          const results = Array.isArray(rawResults) ? rawResults : [];
           
           // Buscar cotizaciones en la respuesta de la API del BCRA
           // Si el BCRA devuelve un array de monedas, mapear por código ISO o descripción
-          const usdMayorista = results.find(d => d.codigoMoneda === 'USD' || (d.detalle && d.detalle.toLowerCase().includes('mayorista')) || d.codigo === 'A3500');
-          const eurOficial = results.find(d => d.codigoMoneda === 'EUR' || (d.detalle && d.detalle.toLowerCase().includes('euro')));
-          const brlOficial = results.find(d => d.codigoMoneda === 'BRL' || (d.detalle && d.detalle.toLowerCase().includes('real')));
+          const usdMayorista = results.length > 0 ? results.find(d => d.codigoMoneda === 'USD' || (d.detalle && d.detalle.toLowerCase().includes('mayorista')) || d.codigo === 'A3500') : null;
+          const eurOficial = results.length > 0 ? results.find(d => d.codigoMoneda === 'EUR' || (d.detalle && d.detalle.toLowerCase().includes('euro'))) : null;
+          const brlOficial = results.length > 0 ? results.find(d => d.codigoMoneda === 'BRL' || (d.detalle && d.detalle.toLowerCase().includes('real'))) : null;
           
           state.dolares.live.mayorista = usdMayorista ? parseFloat(usdMayorista.tipoCambioVendedor || usdMayorista.valor || usdMayorista.close) : (state.dolares.live.oficial * 0.985);
           state.dolares.live.euro = eurOficial ? parseFloat(eurOficial.tipoCambioVendedor || eurOficial.valor || eurOficial.close) : (state.dolares.live.oficial * 1.09);
