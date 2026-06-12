@@ -224,11 +224,8 @@ app.use('/api/bcra-cambiarias', async (req, res) => {
     });
     res.json(response.data);
   } catch (error) {
-    console.error(`Error en Cambiarias Proxy (${req.path}):`, error.message);
-    res.status(error.response?.status || 500).json({
-      error: `Error al conectar con la API de Estadísticas Cambiarias del BCRA`,
-      details: error.message
-    });
+    console.warn(`Error en Cambiarias Proxy (${req.path}), enviando contingencia vacía:`, error.message);
+    res.json({ results: [], error: true, details: error.message });
   }
 });
 
@@ -245,11 +242,8 @@ app.use('/api/bcra-transparencia', async (req, res) => {
     });
     res.json(response.data);
   } catch (error) {
-    console.error(`Error en Transparencia Proxy (${req.path}):`, error.message);
-    res.status(error.response?.status || 500).json({
-      error: `Error al conectar con la API del Régimen de Transparencia del BCRA`,
-      details: error.message
-    });
+    console.warn(`Error en Transparencia Proxy (${req.path}), enviando contingencia vacía:`, error.message);
+    res.json({ results: [], error: true, details: error.message });
   }
 });
 
@@ -266,11 +260,8 @@ app.use('/api/bcra-deudores', async (req, res) => {
     });
     res.json(response.data);
   } catch (error) {
-    console.error(`Error en Deudores Proxy (${req.path}):`, error.message);
-    res.status(error.response?.status || 500).json({
-      error: `Error al conectar con la API de la Central de Deudores del BCRA`,
-      details: error.message
-    });
+    console.warn(`Error en Deudores Proxy (${req.path}), enviando contingencia vacía:`, error.message);
+    res.json({ results: [], deudas: [], error: true, details: error.message });
   }
 });
 
@@ -287,13 +278,11 @@ app.use('/api/bcra-cheques', async (req, res) => {
     });
     res.json(response.data);
   } catch (error) {
-    console.error(`Error en Cheques Proxy (${req.path}):`, error.message);
-    res.status(error.response?.status || 500).json({
-      error: `Error al conectar con la API de Cheques Denunciados del BCRA`,
-      details: error.message
-    });
+    console.warn(`Error en Cheques Proxy (${req.path}), enviando contingencia vacía:`, error.message);
+    res.json({ results: [], denunciado: false, error: true, details: error.message });
   }
 });
+
 
 // ==========================================
 // FALLBACK Y EJECUCIÓN
