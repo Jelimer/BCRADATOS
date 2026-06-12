@@ -2410,7 +2410,7 @@ const ComparadorModule = {
 
     try {
       // Intentar obtener préstamos reales con timeout
-      const prestRes = await fetchWithTimeout('/api/bcra-transparencia/PrestamosPersonales', { timeout: 2500 });
+      const prestRes = await fetchWithTimeout('/api/bcra-transparencia/Prestamos/Personales', { timeout: 2500 });
       if (prestRes.ok) {
         const prestData = await prestRes.json();
         if (prestData && prestData.error) {
