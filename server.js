@@ -23,7 +23,7 @@ const BCRA_API_BASE = 'https://api.bcra.gob.ar/estadisticas/v4.0';
 // Configurar cliente de Axios con headers para evitar bloqueos
 const client = axios.create({
   baseURL: BCRA_API_BASE,
-  timeout: 15000,
+  timeout: 25000,
   headers: {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Accept': 'application/json, text/plain, */*',
@@ -203,7 +203,7 @@ app.get('/api/byma/historico/:symbol', async (req, res) => {
 
 // Configurar cliente general para llamadas a la API del BCRA sin baseURL fija
 const bcraGeneralClient = axios.create({
-  timeout: 15000,
+  timeout: 25000,
   headers: {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Accept': 'application/json, text/plain, */*',

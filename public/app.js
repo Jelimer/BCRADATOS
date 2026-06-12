@@ -2678,8 +2678,8 @@ const ConsultasModule = {
     loader.classList.remove('hidden');
 
     try {
-      // 1. Intentar llamar al proxy real con timeout aumentado a 5000ms
-      const res = await fetchWithTimeout(`/api/bcra-deudores/Deudas/${cuit}`, { timeout: 5000 });
+      // 1. Intentar llamar al proxy real con timeout aumentado a 20 segundos
+      const res = await fetchWithTimeout(`/api/bcra-deudores/Deudas/${cuit}`, { timeout: 20000 });
       if (res.ok) {
         const data = await res.json();
         if (data && data.error) {
@@ -2898,8 +2898,8 @@ const ConsultasModule = {
     loader.classList.remove('hidden');
 
     try {
-      // Llamar al proxy real de cheques denunciados con variables de ruta y timeout 4000ms
-      const res = await fetchWithTimeout(`/api/bcra-cheques/denunciados/${banco}/${numero}`, { timeout: 4000 });
+      // Llamar al proxy real de cheques denunciados con variables de ruta y timeout 20 segundos
+      const res = await fetchWithTimeout(`/api/bcra-cheques/denunciados/${banco}/${numero}`, { timeout: 20000 });
       if (res.ok) {
         const data = await res.json();
         if (data && data.error) {
