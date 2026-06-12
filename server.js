@@ -198,8 +198,107 @@ app.get('/api/byma/historico/:symbol', async (req, res) => {
 });
 
 // ==========================================
+// 5. PROXIES DINÁMICOS ADICIONALES - BCRA
+// ==========================================
+
+// Configurar cliente general para llamadas a la API del BCRA sin baseURL fija
+const bcraGeneralClient = axios.create({
+  timeout: 15000,
+  headers: {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
+  }
+});
+
+// Proxy para Estadísticas Cambiarias
+app.use('/api/bcra-cambiarias', async (req, res) => {
+  const targetUrl = `https://api.bcra.gob.ar/estadisticascambiarias/v1.0${req.path}`;
+  try {
+    console.log(`Cambiarias Proxy: ${req.method} ${targetUrl} con query:`, req.query);
+    const response = await bcraGeneralClient({
+      method: req.method,
+      url: targetUrl,
+      params: req.query,
+      data: req.body
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error(`Error en Cambiarias Proxy (${req.path}):`, error.message);
+    res.status(error.response?.status || 500).json({
+      error: `Error al conectar con la API de Estadísticas Cambiarias del BCRA`,
+      details: error.message
+    });
+  }
+});
+
+// Proxy para Régimen de Transparencia
+app.use('/api/bcra-transparencia', async (req, res) => {
+  const targetUrl = `https://api.bcra.gob.ar/transparencia/v1.0${req.path}`;
+  try {
+    console.log(`Transparencia Proxy: ${req.method} ${targetUrl} con query:`, req.query);
+    const response = await bcraGeneralClient({
+      method: req.method,
+      url: targetUrl,
+      params: req.query,
+      data: req.body
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error(`Error en Transparencia Proxy (${req.path}):`, error.message);
+    res.status(error.response?.status || 500).json({
+      error: `Error al conectar con la API del Régimen de Transparencia del BCRA`,
+      details: error.message
+    });
+  }
+});
+
+// Proxy para Central de Deudores
+app.use('/api/bcra-deudores', async (req, res) => {
+  const targetUrl = `https://api.bcra.gob.ar/centraldedeudores/v1.0${req.path}`;
+  try {
+    console.log(`Deudores Proxy: ${req.method} ${targetUrl} con query:`, req.query);
+    const response = await bcraGeneralClient({
+      method: req.method,
+      url: targetUrl,
+      params: req.query,
+      data: req.body
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error(`Error en Deudores Proxy (${req.path}):`, error.message);
+    res.status(error.response?.status || 500).json({
+      error: `Error al conectar con la API de la Central de Deudores del BCRA`,
+      details: error.message
+    });
+  }
+});
+
+// Proxy para Cheques Denunciados
+app.use('/api/bcra-cheques', async (req, res) => {
+  const targetUrl = `https://api.bcra.gob.ar/cheques/v1.0${req.path}`;
+  try {
+    console.log(`Cheques Proxy: ${req.method} ${targetUrl} con query:`, req.query);
+    const response = await bcraGeneralClient({
+      method: req.method,
+      url: targetUrl,
+      params: req.query,
+      data: req.body
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error(`Error en Cheques Proxy (${req.path}):`, error.message);
+    res.status(error.response?.status || 500).json({
+      error: `Error al conectar con la API de Cheques Denunciados del BCRA`,
+      details: error.message
+    });
+  }
+});
+
+// ==========================================
 // FALLBACK Y EJECUCIÓN
 // ==========================================
+
 
 // Redirigir cualquier otra ruta no encontrada a la SPA
 app.get('*', (req, res) => {

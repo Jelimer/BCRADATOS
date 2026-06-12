@@ -1487,5 +1487,110 @@ body.dark-theme .pill-btn.active {
   }
 }
 
+/* ========================================== */
+/* ESTILOS ADICIONALES PARA COMPARADOR Y CONSULTAS */
+/* ========================================== */
+
+.comparador-subview, .consultas-subview {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  animation: fadeIn var(--transition-fast) ease-in-out;
+}
+
+.dot-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.search-box-large {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 20px;
+}
+
+.large-input {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.large-input:focus {
+  border-color: var(--primary);
+}
+
+.deudores-results-panel {
+  animation: slideUp var(--transition-fast) ease-in-out;
+}
+
+.deudor-badge {
+  background: rgba(48, 209, 88, 0.15);
+  color: #30d158;
+  border: 1px solid rgba(48, 209, 88, 0.3);
+}
+
+.deudor-badge.situacion-1 {
+  background: rgba(48, 209, 88, 0.15);
+  color: #30d158;
+  border: 1px solid rgba(48, 209, 88, 0.3);
+}
+
+.deudor-badge.situacion-2 {
+  background: rgba(255, 214, 10, 0.15);
+  color: #ffd60a;
+  border: 1px solid rgba(255, 214, 10, 0.3);
+}
+
+.deudor-badge.situacion-3 {
+  background: rgba(255, 149, 0, 0.15);
+  color: #ff9500;
+  border: 1px solid rgba(255, 149, 0, 0.3);
+}
+
+.deudor-badge.situacion-4, .deudor-badge.situacion-5 {
+  background: rgba(255, 69, 58, 0.15);
+  color: #ff453a;
+  border: 1px solid rgba(255, 69, 58, 0.3);
+}
+
+.deudor-badge.situacion-6 {
+  background: rgba(191, 90, 242, 0.15);
+  color: #bf5af2;
+  border: 1px solid rgba(191, 90, 242, 0.3);
+}
+
+.cheques-ticket {
+  transition: all var(--transition-fast) ease-in-out;
+}
+
+.cheques-ticket.denunciado {
+  background: rgba(255, 69, 58, 0.08) !important;
+  border-color: #ff453a !important;
+}
+
+.cheques-ticket.denunciado #chequeResultIconWrapper {
+  color: #ff453a !important;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+
 
 

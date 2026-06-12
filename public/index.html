@@ -51,13 +51,22 @@
         </button>
         <button class="nav-tab-btn" data-tab="dolares">
           <i class="fa-solid fa-dollar-sign"></i>
-          <span>Dólares y Brechas</span>
+          <span>Mercado de Cambios</span>
         </button>
         <button class="nav-tab-btn" data-tab="byma">
           <i class="fa-solid fa-money-bill-trend-up"></i>
           <span>Bonos y Letras</span>
         </button>
+        <button class="nav-tab-btn" data-tab="comparador">
+          <i class="fa-solid fa-scale-balanced"></i>
+          <span>Comparador Bancario</span>
+        </button>
+        <button class="nav-tab-btn" data-tab="consultas">
+          <i class="fa-solid fa-address-card"></i>
+          <span>Consultas Financieras</span>
+        </button>
       </nav>
+
 
       <!-- Subpanel Dinámico para el Catálogo del BCRA (solo visible en pestaña BCRA) -->
       <div id="bcraSubpanel" class="sidebar-subpanel">
@@ -483,6 +492,43 @@
               </div>
             </div>
 
+            <!-- Fila 1b: Divisas Oficiales BCRA -->
+            <div class="kpi-row" style="margin-top: 15px;">
+              <div class="kpi-card card-dolar-glow" id="cardDolarMayorista">
+                <div class="kpi-icon-wrapper" style="background: rgba(0, 122, 255, 0.15); color: #007aff;">
+                  <i class="fa-solid fa-landmark-flag"></i>
+                </div>
+                <div class="kpi-info">
+                  <span class="kpi-label">Dólar Mayorista (A3500)</span>
+                  <h4 class="kpi-value" id="dolarMayoristaValue">-</h4>
+                  <span class="kpi-subtext">BCRA Referencia</span>
+                </div>
+              </div>
+              
+              <div class="kpi-card card-dolar-glow" id="cardEuroOficial">
+                <div class="kpi-icon-wrapper" style="background: rgba(255, 149, 0, 0.15); color: #ff9500;">
+                  <i class="fa-solid fa-euro-sign"></i>
+                </div>
+                <div class="kpi-info">
+                  <span class="kpi-label">Euro Oficial (BCRA)</span>
+                  <h4 class="kpi-value" id="euroOficialValue">-</h4>
+                  <span class="kpi-subtext">Venta Minorista</span>
+                </div>
+              </div>
+
+              <div class="kpi-card card-dolar-glow" id="cardRealOficial">
+                <div class="kpi-icon-wrapper" style="background: rgba(52, 199, 89, 0.15); color: #34c759;">
+                  <i class="fa-solid fa-money-bill-1"></i>
+                </div>
+                <div class="kpi-info">
+                  <span class="kpi-label">Real Brasileño (BCRA)</span>
+                  <h4 class="kpi-value" id="realOficialValue">-</h4>
+                  <span class="kpi-subtext">Venta Minorista</span>
+                </div>
+              </div>
+            </div>
+
+
             <!-- Fila 2: Gráfico de cambio e histórico de Brechas -->
             <div class="main-card chart-container-card">
               <div class="card-header-controls">
@@ -693,10 +739,294 @@
               </div>
             </div>
 
+        </div>
+
+        <!-- ========================================== -->
+        <!-- PESTAÑA E: COMPARADOR BANCARIO             -->
+        <!-- ========================================== -->
+        <div id="viewComparador" class="view-panel hidden">
+          <div class="loading-overlay hidden" id="loadingComparadorOverlay">
+            <div class="spinner-large"></div>
+            <p>Obteniendo información del Régimen de Transparencia del BCRA...</p>
+          </div>
+
+          <div class="dashboard-grid" id="comparadorContent">
+            <!-- Selector de tipo de comparación -->
+            <div class="main-card chart-container-card" style="padding: 20px;">
+              <div class="card-header-controls" style="margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; flex-wrap: wrap; gap: 15px;">
+                <div class="quick-ranges" style="flex-wrap: wrap; gap: 5px;">
+                  <button class="range-btn active" id="btnShowPlazosFijos">
+                    <i class="fa-solid fa-piggy-bank"></i> Plazos Fijos
+                  </button>
+                  <button class="range-btn" id="btnShowComisiones">
+                    <i class="fa-solid fa-credit-card"></i> Cajas de Ahorro y Tarjetas
+                  </button>
+                  <button class="range-btn" id="btnShowPrestamos">
+                    <i class="fa-solid fa-hand-holding-dollar"></i> Préstamos Personales
+                  </button>
+                </div>
+                
+                <div class="search-box" style="max-width: 300px; width: 100%; margin-left: auto;">
+                  <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                  <input type="text" id="bankSearchInput" placeholder="Buscar banco..." aria-label="Buscar entidad financiera">
+                </div>
+              </div>
+
+              <!-- Vista Plazos Fijos -->
+              <div class="comparador-subview" id="subviewPlazosFijos">
+                <div class="info-card-header" style="margin-bottom: 15px;">
+                  <i class="fa-solid fa-percent info-icon" style="color: #ffd60a;"></i>
+                  <h3>Tasas de Interés de Plazos Fijos Online (Pesos a 30 días)</h3>
+                </div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px; font-size: 14px;">
+                  Los datos reflejan la Tasa Nominal Anual (TNA) reportada por las entidades financieras al BCRA para plazos fijos no compensables constituidos a través de canales digitales.
+                </p>
+                <div class="table-wrapper">
+                  <table class="data-table" id="plazosFijosTable">
+                    <thead>
+                      <tr>
+                        <th scope="col">Banco / Entidad Financiera</th>
+                        <th scope="col" class="text-right">TNA (%)</th>
+                        <th scope="col" class="text-right">Rendimiento Directo (30 días)</th>
+                        <th scope="col" class="text-right">Canal</th>
+                      </tr>
+                    </thead>
+                    <tbody id="plazosFijosTableBody">
+                      <!-- Datos dinámicos -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Vista Comisiones -->
+              <div class="comparador-subview hidden" id="subviewComisiones">
+                <div class="info-card-header" style="margin-bottom: 15px;">
+                  <i class="fa-solid fa-credit-card info-icon" style="color: #bf5af2;"></i>
+                  <h3>Comisiones de Mantenimiento de Cuentas y Tarjetas</h3>
+                </div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px; font-size: 14px;">
+                  Comparador de costos mensuales cobrados por bancos autorizados. Los importes no incluyen IVA.
+                </p>
+                <div class="table-wrapper">
+                  <table class="data-table" id="comisionesTable">
+                    <thead>
+                      <tr>
+                        <th scope="col">Banco / Entidad</th>
+                        <th scope="col">Producto / Paquete</th>
+                        <th scope="col" class="text-right">Mantenimiento Mensual ($)</th>
+                        <th scope="col" class="text-right">Renovación Anual ($)</th>
+                      </tr>
+                    </thead>
+                    <tbody id="comisionesTableBody">
+                      <!-- Datos dinámicos -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Vista Préstamos -->
+              <div class="comparador-subview hidden" id="subviewPrestamos">
+                <div class="info-card-header" style="margin-bottom: 15px;">
+                  <i class="fa-solid fa-hand-holding-dollar info-icon" style="color: #30d158;"></i>
+                  <h3>Tasas y Costo Financiero Total de Préstamos Personales</h3>
+                </div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px; font-size: 14px;">
+                  Tasa Nominal Anual (TNA) promedio y Costo Financiero Total (CFT) para créditos personales a tasa fija.
+                </p>
+                <div class="table-wrapper">
+                  <table class="data-table" id="prestamosTable">
+                    <thead>
+                      <tr>
+                        <th scope="col">Banco / Entidad</th>
+                        <th scope="col" class="text-right">TNA Promedio (%)</th>
+                        <th scope="col" class="text-right">CFT Máximo (%)</th>
+                        <th scope="col" class="text-right">Plazo Máximo</th>
+                      </tr>
+                    </thead>
+                    <tbody id="prestamosTableBody">
+                      <!-- Datos dinámicos -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- PESTAÑA F: CONSULTAS FINANCIERAS           -->
+        <!-- ========================================== -->
+        <div id="viewConsultas" class="view-panel hidden">
+          <div class="dashboard-grid">
+            
+            <!-- Selector de Herramienta -->
+            <div class="main-card chart-container-card" style="padding: 20px;">
+              <div class="card-header-controls" style="margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
+                <div class="quick-ranges">
+                  <button class="range-btn active" id="btnShowDeudores">
+                    <i class="fa-solid fa-address-card"></i> Central de Deudores (BCRA)
+                  </button>
+                  <button class="range-btn" id="btnShowValidadorCheques">
+                    <i class="fa-solid fa-ticket"></i> Validador de Cheques
+                  </button>
+                </div>
+              </div>
+
+              <!-- Vista Central de Deudores -->
+              <div class="consultas-subview" id="subviewDeudores">
+                <div class="info-card-header" style="margin-bottom: 20px;">
+                  <i class="fa-solid fa-shield-halved info-icon" style="color: #bf5af2;"></i>
+                  <h3>Consulta de Situación Crediticia y Financiera</h3>
+                </div>
+                
+                <div class="consulta-form-container">
+                  <div class="search-box-large">
+                    <label for="cuitInput" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; display: block;">Ingrese CUIT / CUIL / CDI (11 dígitos sin guiones)</label>
+                    <div style="display: flex; gap: 10px;">
+                      <input type="text" id="cuitInput" maxlength="11" placeholder="Ej: 20123456789" class="large-input" style="flex: 1; height: 45px; background: var(--bg-card); color: var(--text-main); border: 1px solid rgba(255,255,255,0.1); padding: 0 15px; border-radius: 6px; font-size: 15px;" aria-label="Ingresar CUIT o CUIL">
+                      <button class="btn btn-primary" id="btnConsultarDeudor" style="padding: 0 25px; height: 45px;">
+                        <i class="fa-solid fa-magnifying-glass"></i> Consultar
+                      </button>
+                    </div>
+                    <span id="cuitErrorText" class="error-inline hidden" style="color: #ff453a; font-size: 12.5px; margin-top: 5px; display: block;">CUIT inválido. Debe contener 11 dígitos numéricos válidos.</span>
+                  </div>
+                </div>
+
+                <div id="loadingDeudores" class="loading-state hidden" style="margin-top: 20px;">
+                  <div class="spinner"></div>
+                  <p>Consultando base de datos del Banco Central...</p>
+                </div>
+
+                <div id="deudoresResultContainer" class="deudores-results-panel hidden" style="margin-top: 25px;">
+                  <div class="deudores-card-header" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                    <div>
+                      <h4 id="deudorNombre" class="deudor-title" style="font-size: 18px; font-weight: 700; margin: 0; color: var(--text-main);">-</h4>
+                      <p id="deudorCuit" class="deudor-subtitle" style="font-size: 13px; color: var(--text-secondary); margin: 5px 0 0 0;">CUIT: -</p>
+                    </div>
+                    <div class="deudor-badge" id="deudorBadgeStatus" style="padding: 6px 12px; border-radius: 6px; font-size: 12.5px; font-weight: 600;">
+                      <span id="deudorBadgeText">-</span>
+                    </div>
+                  </div>
+
+                  <!-- Grilla de Detalle -->
+                  <div class="details-grid" style="margin-top: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+                    <div class="detail-item" style="background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; text-align: center;">
+                      <span class="detail-label" style="display: block; font-size: 11px; color: var(--text-secondary); margin-bottom: 5px;">Peor Estado</span>
+                      <span class="detail-val" id="deudorPeorSituacion" style="font-size: 18px; font-weight: 700;">-</span>
+                    </div>
+                    <div class="detail-item" style="background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; text-align: center;">
+                      <span class="detail-label" style="display: block; font-size: 11px; color: var(--text-secondary); margin-bottom: 5px;">Deuda Consolidada</span>
+                      <span class="detail-val" id="deudorTotalDeuda" style="font-size: 18px; font-weight: 700; color: #30d158;">-</span>
+                    </div>
+                    <div class="detail-item" style="background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; text-align: center;">
+                      <span class="detail-label" style="display: block; font-size: 11px; color: var(--text-secondary); margin-bottom: 5px;">Bancos Consultados</span>
+                      <span class="detail-val" id="deudorCantEntidades" style="font-size: 18px; font-weight: 700;">-</span>
+                    </div>
+                    <div class="detail-item" style="background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; text-align: center;">
+                      <span class="detail-label" style="display: block; font-size: 11px; color: var(--text-secondary); margin-bottom: 5px;">Cheques Rechazados</span>
+                      <span class="detail-val" id="deudorChequesRechazados" style="font-size: 18px; font-weight: 700;">-</span>
+                    </div>
+                  </div>
+
+                  <!-- Tabla de deudas consolidadas -->
+                  <div style="margin-top: 25px;">
+                    <div class="section-title-sm" style="font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 10px;"><i class="fa-solid fa-building-columns"></i> Detalle de Deudas por Entidad Bancaria</div>
+                    <div class="table-wrapper" style="margin-top: 10px;">
+                      <table class="data-table" id="deudasTable">
+                        <thead>
+                          <tr>
+                            <th scope="col">Entidad Otorgante</th>
+                            <th scope="col" class="text-right">Monto Deuda ($ mil)</th>
+                            <th scope="col" class="text-center">Situación</th>
+                            <th scope="col" class="text-right">Período</th>
+                          </tr>
+                        </thead>
+                        <tbody id="deudasTableBody">
+                          <!-- Datos dinámicos -->
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <!-- Leyenda de Situaciones -->
+                  <div class="legend-box" style="margin-top: 25px; font-size: 12px; line-height: 1.5; color: var(--text-secondary); background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                    <strong style="color: var(--text-main); display: block; margin-bottom: 8px;">Clasificación de Deudores del BCRA:</strong>
+                    <div class="legend-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px;">
+                      <div style="display: flex; align-items: center; gap: 8px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #30d158;"></span> <strong>1: Normal</strong> (Atraso &lt; 31 días)</div>
+                      <div style="display: flex; align-items: center; gap: 8px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ffd60a;"></span> <strong>2: Seguimiento Especial</strong> (31-90 días)</div>
+                      <div style="display: flex; align-items: center; gap: 8px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ff9500;"></span> <strong>3: Con Problemas</strong> (91-180 días)</div>
+                      <div style="display: flex; align-items: center; gap: 8px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ff453a;"></span> <strong>4: Alto Riesgo de Insolvencia</strong> (181-365 días)</div>
+                      <div style="display: flex; align-items: center; gap: 8px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #8e8e93;"></span> <strong>5: Irrecuperable</strong> (Atraso &gt; 365 días)</div>
+                      <div style="display: flex; align-items: center; gap: 8px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #bf5af2;"></span> <strong>6: Irrecuperable por Disp. Técnica</strong></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Vista Validador de Cheques -->
+              <div class="consultas-subview hidden" id="subviewValidadorCheques">
+                <div class="info-card-header" style="margin-bottom: 20px;">
+                  <i class="fa-solid fa-ticket info-icon" style="color: #ffd60a;"></i>
+                  <h3>Validador de Cheques</h3>
+                </div>
+                
+                <div class="consulta-form-container">
+                  <div class="cheques-inputs-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                    <div class="input-wrapper-cheque">
+                      <label for="chequeBancoSelect" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; display: block;">Entidad Bancaria</label>
+                      <select id="chequeBancoSelect" class="large-input" style="width: 100%; height: 45px; background: var(--bg-card); color: var(--text-main); border: 1px solid rgba(255,255,255,0.1); padding: 0 10px; border-radius: 6px; font-size: 14px;">
+                        <option value="">Seleccione Entidad...</option>
+                        <option value="011">Banco de la Nación Argentina (011)</option>
+                        <option value="007">Banco Galicia (007)</option>
+                        <option value="072">Banco Santander (072)</option>
+                        <option value="017">BBVA Argentina (017)</option>
+                        <option value="285">Banco Macro (285)</option>
+                        <option value="014">Banco Provincia de Bs As (014)</option>
+                        <option value="045">Banco Credicoop (045)</option>
+                        <option value="015">Banco Ciudad (015)</option>
+                        <option value="027">Banco Supervielle (027)</option>
+                        <option value="034">Banco Patagonia (034)</option>
+                      </select>
+                    </div>
+                    <div class="input-wrapper-cheque">
+                      <label for="chequeNumeroInput" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; display: block;">Número de Cheque</label>
+                      <input type="text" id="chequeNumeroInput" placeholder="Ej: 12345678" class="large-input" style="width: 100%; height: 45px; background: var(--bg-card); color: var(--text-main); border: 1px solid rgba(255,255,255,0.1); padding: 0 15px; border-radius: 6px; font-size: 15px;" aria-label="Ingresar número de cheque">
+                    </div>
+                  </div>
+                  <button class="btn btn-primary" id="btnConsultarCheque" style="width: 100%; height: 45px;">
+                    <i class="fa-solid fa-magnifying-glass"></i> Verificar Cheque
+                  </button>
+                  <span id="chequeErrorText" class="error-inline hidden" style="color: #ff453a; font-size: 12.5px; margin-top: 5px; display: block;">Debe seleccionar un banco e ingresar un número de cheque válido.</span>
+                </div>
+
+                <div id="loadingCheques" class="loading-state hidden" style="margin-top: 20px;">
+                  <div class="spinner"></div>
+                  <p>Verificando estado en el registro del Banco Central...</p>
+                </div>
+
+                <div id="chequesResultContainer" class="cheques-results-panel hidden" style="margin-top: 25px;">
+                  <div class="cheques-ticket" id="chequeTicketBg" style="background: rgba(48, 209, 88, 0.08); border: 2px dashed #30d158; padding: 25px; border-radius: 12px; position: relative;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                      <div>
+                        <h4 style="font-size: 18px; font-weight: 700; margin-bottom: 5px; color: var(--text-main);" id="chequeResultTitle">CHEQUE SIN DENUNCIAS</h4>
+                        <p style="font-size: 13px; color: var(--text-secondary);" id="chequeResultSubtitle">Banco Nación (011) — N° -</p>
+                      </div>
+                      <div id="chequeResultIconWrapper" style="font-size: 32px; color: #30d158;">
+                        <i class="fa-solid fa-circle-check" id="chequeResultIcon"></i>
+                      </div>
+                    </div>
+                    <div style="border-top: 1px dashed rgba(255,255,255,0.15); margin-top: 15px; padding-top: 15px; font-size: 13px; color: var(--text-secondary);" id="chequeResultDesc">
+                      El cheque consultado no presenta registros de denuncias por robo, extravío o adulteración en la central del Banco Central de la República Argentina a la fecha de hoy.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
       </div>
+
       
     </main>
     
