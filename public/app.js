@@ -1471,7 +1471,7 @@ const DolaresModule = {
 
       // 3. Obtener Históricos: Oficial (BCRA) e históricos de BYMA (AL30 y AL30D) para el MEP
       const to = Math.floor(Date.now() / 1000);
-      const from = to - (90 * 24 * 60 * 60); // 90 días de historial
+      const from = to - (365 * 24 * 60 * 60); // 365 días de historial (1 año)
       const [oficialHistRes, al30HistRes, al30dHistRes] = await Promise.all([
         fetch('/api/monetarias/4'), // Oficial histórico
         fetch(`/api/byma/historico/AL30%2024HS?resolution=D&from=${from}&to=${to}`), // AL30 en Pesos
