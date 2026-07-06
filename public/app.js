@@ -1379,6 +1379,7 @@ const DolaresModule = {
 
     document.getElementById('btnShowDolarChart').addEventListener('click', () => this.switchView('prices'));
     document.getElementById('btnShowBrechaChart').addEventListener('click', () => this.switchView('brecha'));
+    document.getElementById('exportDolaresCsvBtn').addEventListener('click', () => this.exportToCsv());
 
     // Paginación de dólares
     document.getElementById('btnPrevDolaresPage').addEventListener('click', () => this.changeTablePage(-1));
@@ -1887,6 +1888,72 @@ const DolaresModule = {
     paginationInfo.textContent = `Mostrando ${startIndex + 1}-${endIndex} de ${total} registros`;
     btnPrev.disabled = state.dolares.tablePage <= 1;
     btnNext.disabled = endIndex >= total;
+  },
+
+  exportToCsv() {
+    const dates = state.dolares.currentDates || [];
+    const filteredMep = state.dolares.currentMep || [];
+    const oficialMap = state.dolares.currentOficialMap || {};
+
+    if (dates.length === 0) {
+      showToast('No hay datos para exportar.', 'warning');
+      return;
+    }
+
+    const fullMep = state.dolares.historical.mep;
+    const fullOficial = state.dolares.historical.oficial;
+
+    let csvContent = "Fecha;Dolar MEP;Variacion MEP;Dolar Oficial;Variacion Oficial;Brecha\n";
+
+    // Orden cronológico (de más antiguo a más reciente)
+    dates.forEach(date => {
+      const mepItem = filteredMep.find(d => d.date === date);
+      const mepVal = mepItem ? mepItem.value : null;
+      const oficialVal = oficialMap[date] || null;
+
+      let mepVarText = '-';
+      if (mepVal !== null) {
+        const fullIdx = fullMep.findIndex(d => d.date === date);
+        if (fullIdx > 0) {
+          const prevVal = fullMep[fullIdx - 1].value;
+          const diff = mepVal - prevVal;
+          const diffPct = (diff / prevVal) * 100;
+          mepVarText = `${diff >= 0 ? '+' : ''}${diffPct.toFixed(2)}%`;
+        }
+      }
+
+      let oficialVarText = '-';
+      if (oficialVal !== null) {
+        const fullIdx = fullOficial.findIndex(d => d.date === date);
+        if (fullIdx > 0) {
+          const prevVal = fullOficial[fullIdx - 1].value;
+          const diff = oficialVal - prevVal;
+          const diffPct = (diff / prevVal) * 100;
+          oficialVarText = `${diff >= 0 ? '+' : ''}${diffPct.toFixed(2)}%`;
+        }
+      }
+
+      let brechaText = '-';
+      if (mepVal !== null && oficialVal > 0) {
+        const brechaVal = ((mepVal - oficialVal) / oficialVal) * 100;
+        brechaText = `${brechaVal.toFixed(2)}%`;
+      }
+
+      // Formatear decimales con coma para Excel local en español
+      const mepValStr = mepVal ? String(mepVal.toFixed(2)).replace('.', ',') : '-';
+      const oficialValStr = oficialVal ? String(oficialVal.toFixed(2)).replace('.', ',') : '-';
+
+      csvContent += `${formatDate(date)};${mepValStr};${mepVarText};${oficialValStr};${oficialVarText};${brechaText}\n`;
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `mercado_cambios_${dates[0]}_a_${dates[dates.length - 1]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 };
 
