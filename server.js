@@ -283,6 +283,42 @@ app.use('/api/bcra-cheques', async (req, res) => {
   }
 });
 
+// Proxy para DolarApi (Cotización de dólares en vivo)
+app.use('/api/mercado-dolarapi', async (req, res) => {
+  const targetUrl = `https://dolarapi.com/v1${req.path}`;
+  try {
+    console.log(`DolarApi Proxy: ${req.method} ${targetUrl} con query:`, req.query);
+    const response = await bcraGeneralClient({
+      method: req.method,
+      url: targetUrl,
+      params: req.query,
+      data: req.body
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.warn(`Error en DolarApi Proxy (${req.path}):`, error.message);
+    res.json({ error: true, details: error.message });
+  }
+});
+
+// Proxy para ArgentinaDatos (Cotizaciones históricas)
+app.use('/api/argentinadatos', async (req, res) => {
+  const targetUrl = `https://api.argentinadatos.com/v1${req.path}`;
+  try {
+    console.log(`ArgentinaDatos Proxy: ${req.method} ${targetUrl}`);
+    const response = await bcraGeneralClient({
+      method: req.method,
+      url: targetUrl,
+      params: req.query,
+      data: req.body
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.warn(`Error en ArgentinaDatos Proxy (${req.path}):`, error.message);
+    res.json({ error: true, details: error.message });
+  }
+});
+
 
 // ==========================================
 // FALLBACK Y EJECUCIÓN

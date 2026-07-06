@@ -103,8 +103,8 @@ const state = {
 
   // Módulo DÓLARES
   dolares: {
-    live: { oficial: 0, mep: 0, ccl: 0, blue: 0 },
-    historical: { oficial: [], mep: [], dates: [] },
+    live: { oficial: 0, mep: 0, ccl: 0, blue: 0, blueCompra: 0, blueVenta: 0 },
+    historical: { oficial: [], mep: [], blue: [], dates: [] },
     chart: null,
     activeView: 'prices', // Vista del gráfico: 'prices' o 'brecha'
     days: 90,
@@ -1381,6 +1381,12 @@ const DolaresModule = {
     document.getElementById('btnShowBrechaChart').addEventListener('click', () => this.switchView('brecha'));
     document.getElementById('exportDolaresCsvBtn').addEventListener('click', () => this.exportToCsv());
 
+    // Listeners de los checkboxes de selección de variables
+    document.getElementById('chkOficial').addEventListener('change', () => this.renderChart());
+    document.getElementById('chkMep').addEventListener('change', () => this.renderChart());
+    document.getElementById('chkBlueCompra').addEventListener('change', () => this.renderChart());
+    document.getElementById('chkBlueVenta').addEventListener('change', () => this.renderChart());
+
     // Paginación de dólares
     document.getElementById('btnPrevDolaresPage').addEventListener('click', () => this.changeTablePage(-1));
     document.getElementById('btnNextDolaresPage').addEventListener('click', () => this.changeTablePage(1));
@@ -1435,8 +1441,23 @@ const DolaresModule = {
       const oficialVar = state.variables.find(v => String(v.idVariable || v.id) === '4');
       state.dolares.live.oficial = oficialVar ? parseFloat(oficialVar.ultValorInformado) : 950;
       
-      // Estimar Dólar Blue (MEP + spread del 3.5%)
-      state.dolares.live.blue = state.dolares.live.mep * 1.035;
+      // 2a. Obtener Dólar Blue real en vivo desde DolarApi
+      try {
+        const blueRes = await fetch('/api/mercado-dolarapi/dolares/blue');
+        if (blueRes.ok) {
+          const blueData = await blueRes.json();
+          state.dolares.live.blueCompra = parseFloat(blueData.compra || 0);
+          state.dolares.live.blueVenta = parseFloat(blueData.venta || 0);
+          state.dolares.live.blue = state.dolares.live.blueVenta; // compatibilidad
+        } else {
+          throw new Error('Fallo DolarApi en vivo');
+        }
+      } catch (e) {
+        console.warn('Usando fallback para cotización del Dólar Blue en vivo:', e.message);
+        state.dolares.live.blueCompra = state.dolares.live.mep * 1.015;
+        state.dolares.live.blueVenta = state.dolares.live.mep * 1.035;
+        state.dolares.live.blue = state.dolares.live.blueVenta;
+      }
 
       // 2b. Obtener divisas oficiales (Euro, Real, Dólar Mayorista A3500) desde la API de Estadísticas Cambiarias del BCRA
       try {
@@ -1469,18 +1490,20 @@ const DolaresModule = {
       this.renderLiveCards();
 
 
-      // 3. Obtener Históricos: Oficial (BCRA) e históricos de BYMA (AL30 y AL30D) para el MEP
+      // 3. Obtener Históricos: Oficial (BCRA), históricos de BYMA (AL30 y AL30D) para el MEP, e histórico de ArgentinaDatos para el Blue
       const to = Math.floor(Date.now() / 1000);
       const from = to - (365 * 24 * 60 * 60); // 365 días de historial (1 año)
-      const [oficialHistRes, al30HistRes, al30dHistRes] = await Promise.all([
+      const [oficialHistRes, al30HistRes, al30dHistRes, blueHistRes] = await Promise.all([
         fetch('/api/monetarias/4'), // Oficial histórico
         fetch(`/api/byma/historico/AL30%2024HS?resolution=D&from=${from}&to=${to}`), // AL30 en Pesos
-        fetch(`/api/byma/historico/AL30D%2024HS?resolution=D&from=${from}&to=${to}`) // AL30 en USD
+        fetch(`/api/byma/historico/AL30D%2024HS?resolution=D&from=${from}&to=${to}`), // AL30 en USD
+        fetch('/api/argentinadatos/cotizaciones/dolares/blue') // Blue histórico
       ]);
 
       const oficialHist = oficialHistRes.ok ? await oficialHistRes.json() : {};
       const al30Hist = al30HistRes.ok ? await al30HistRes.json() : {};
       const al30dHist = al30dHistRes.ok ? await al30dHistRes.json() : {};
+      const blueHist = blueHistRes.ok ? await blueHistRes.json() : [];
 
       // Procesar Oficial Histórico
       let rawOficial = [];
@@ -1516,9 +1539,25 @@ const DolaresModule = {
         });
       }
 
+      // Procesar Blue Histórico
+      const parsedBlue = [];
+      const rawBlue = Array.isArray(blueHist) ? blueHist : [];
+      rawBlue.forEach(item => {
+        const valCompra = parseFloat(item.compra);
+        const valVenta = parseFloat(item.venta);
+        if (item.fecha && !isNaN(valVenta)) {
+          parsedBlue.push({
+            date: item.fecha,
+            compra: isNaN(valCompra) ? valVenta * 0.985 : valCompra,
+            venta: valVenta
+          });
+        }
+      });
+
       // Sincronizar series por fecha
       state.dolares.historical.oficial = parsedOficial;
       state.dolares.historical.mep = parsedMep.sort((a,b) => a.date.localeCompare(b.date));
+      state.dolares.historical.blue = parsedBlue.sort((a,b) => a.date.localeCompare(b.date));
 
       // Inicializar campos de fecha manual
       const dates = state.dolares.historical.mep.map(d => d.date);
@@ -1547,7 +1586,10 @@ const DolaresModule = {
     document.getElementById('dolarOficialValue').textContent = `$${formatValue(live.oficial)}`;
     document.getElementById('dolarMepValue').textContent = `$${formatValue(live.mep)}`;
     document.getElementById('dolarCclValue').textContent = `$${formatValue(live.ccl)}`;
-    document.getElementById('dolarBlueValue').textContent = `$${formatValue(live.blue)}`;
+    
+    // Tarjeta del Dólar Blue con Compra y Venta independientes
+    document.getElementById('dolarBlueCompraValue').textContent = `$${formatValue(live.blueCompra)}`;
+    document.getElementById('dolarBlueVentaValue').textContent = `$${formatValue(live.blueVenta)}`;
     
     // Nuevas divisas oficiales
     document.getElementById('dolarMayoristaValue').textContent = `$${formatValue(live.mayorista)}`;
@@ -1556,7 +1598,7 @@ const DolaresModule = {
 
     const brechaMep = ((live.mep - live.oficial) / live.oficial) * 100;
     const brechaCcl = ((live.ccl - live.oficial) / live.oficial) * 100;
-    const brechaBlue = ((live.blue - live.oficial) / live.oficial) * 100;
+    const brechaBlue = ((live.blueVenta - live.oficial) / live.oficial) * 100;
 
     document.getElementById('brechaMepValue').textContent = `Brecha: ${brechaMep.toFixed(1)}%`;
     document.getElementById('brechaCclValue').textContent = `Brecha: ${brechaCcl.toFixed(1)}%`;
@@ -1569,6 +1611,7 @@ const DolaresModule = {
     
     const btnPrices = document.getElementById('btnShowDolarChart');
     const btnBrecha = document.getElementById('btnShowBrechaChart');
+    const selectorContainer = document.getElementById('dolarSelectorContainer');
     
     btnPrices.className = 'btn btn-secondary btn-sm';
     btnPrices.style.backgroundColor = '';
@@ -1578,9 +1621,11 @@ const DolaresModule = {
     if (view === 'prices') {
       btnPrices.classList.add('active', 'btn-primary');
       btnPrices.style.backgroundColor = 'var(--theme-dolares)';
+      if (selectorContainer) selectorContainer.classList.remove('hidden');
     } else {
       btnBrecha.classList.add('active', 'btn-primary');
       btnBrecha.style.backgroundColor = 'var(--theme-dolares)';
+      if (selectorContainer) selectorContainer.classList.add('hidden');
     }
     
     state.dolares.tablePage = 1;
@@ -1598,6 +1643,7 @@ const DolaresModule = {
     // Cruzar e integrar históricos de los últimos N días
     const mepData = state.dolares.historical.mep;
     const oficialData = state.dolares.historical.oficial;
+    const blueData = state.dolares.historical.blue || [];
 
     if (mepData.length === 0 || oficialData.length === 0) return;
 
@@ -1623,20 +1669,30 @@ const DolaresModule = {
       filteredMep = mepData.filter(d => d.date >= startStr && d.date <= endStr);
     }
 
-    // Alinear el oficial a las mismas fechas del MEP
+    // Alinear el oficial y el blue a las mismas fechas del MEP
     const dates = filteredMep.map(d => d.date);
     const oficialMap = {};
     oficialData.forEach(d => oficialMap[d.date] = d.value);
 
+    const blueMap = {};
+    blueData.forEach(d => blueMap[d.date] = { compra: d.compra, venta: d.venta });
+
     // Actualizar tabla histórica en paralelo
-    this.renderTable(dates, filteredMep, oficialMap);
+    this.renderTable(dates, filteredMep, oficialMap, blueMap);
 
     const labels = dates.map(d => formatDate(d));
     let datasets = [];
 
+    const showOficial = document.getElementById('chkOficial').checked;
+    const showMep = document.getElementById('chkMep').checked;
+    const showBlueCompra = document.getElementById('chkBlueCompra').checked;
+    const showBlueVenta = document.getElementById('chkBlueVenta').checked;
+
     if (state.dolares.activeView === 'prices') {
       const mepPrices = filteredMep.map(d => d.value);
       const oficialPrices = dates.map(d => oficialMap[d] || null);
+      const blueCompraPrices = dates.map(d => blueMap[d] ? blueMap[d].compra : null);
+      const blueVentaPrices = dates.map(d => blueMap[d] ? blueMap[d].venta : null);
       
       // Calcular MAX/MIN de Dólar MEP
       let maxIdxM = -1, minIdxM = -1, maxValM = -Infinity, minValM = Infinity;
@@ -1646,6 +1702,9 @@ const DolaresModule = {
           if (val < minValM) { minValM = val; minIdxM = idx; }
         }
       });
+      const pointRadiiM = mepPrices.map((val, idx) => (idx === maxIdxM || idx === minIdxM) ? 7 : (mepPrices.length > 80 ? 0 : 3.5));
+      const pointBgColorsM = mepPrices.map((val, idx) => (idx === maxIdxM || idx === minIdxM) ? '#ffd60a' : '#30d158');
+      const pointHoverRadiiM = mepPrices.map((val, idx) => (idx === maxIdxM || idx === minIdxM) ? 9 : 6);
 
       // Calcular MAX/MIN de Dólar Oficial BNA
       let maxIdxO = -1, minIdxO = -1, maxValO = -Infinity, minValO = Infinity;
@@ -1655,17 +1714,36 @@ const DolaresModule = {
           if (val < minValO) { minValO = val; minIdxO = idx; }
         }
       });
-
-      const pointRadiiM = mepPrices.map((val, idx) => (idx === maxIdxM || idx === minIdxM) ? 7 : (mepPrices.length > 80 ? 0 : 3.5));
-      const pointBgColorsM = mepPrices.map((val, idx) => (idx === maxIdxM || idx === minIdxM) ? '#ffd60a' : '#30d158');
-      const pointHoverRadiiM = mepPrices.map((val, idx) => (idx === maxIdxM || idx === minIdxM) ? 9 : 6);
-
       const pointRadiiO = oficialPrices.map((val, idx) => (idx === maxIdxO || idx === minIdxO) ? 7 : (mepPrices.length > 80 ? 0 : 3));
       const pointBgColorsO = oficialPrices.map((val, idx) => (idx === maxIdxO || idx === minIdxO) ? '#ffd60a' : '#ffffff');
       const pointHoverRadiiO = oficialPrices.map((val, idx) => (idx === maxIdxO || idx === minIdxO) ? 9 : 5);
 
-      datasets = [
-        {
+      // Calcular MAX/MIN de Dólar Blue Compra
+      let maxIdxBC = -1, minIdxBC = -1, maxValBC = -Infinity, minValBC = Infinity;
+      blueCompraPrices.forEach((val, idx) => {
+        if (val !== null && !isNaN(val)) {
+          if (val > maxValBC) { maxValBC = val; maxIdxBC = idx; }
+          if (val < minValBC) { minValBC = val; minIdxBC = idx; }
+        }
+      });
+      const pointRadiiBC = blueCompraPrices.map((val, idx) => (idx === maxIdxBC || idx === minIdxBC) ? 7 : (blueCompraPrices.length > 80 ? 0 : 3));
+      const pointBgColorsBC = blueCompraPrices.map((val, idx) => (idx === maxIdxBC || idx === minIdxBC) ? '#ffd60a' : '#0a84ff');
+      const pointHoverRadiiBC = blueCompraPrices.map((val, idx) => (idx === maxIdxBC || idx === minIdxBC) ? 9 : 5);
+
+      // Calcular MAX/MIN de Dólar Blue Venta
+      let maxIdxBV = -1, minIdxBV = -1, maxValBV = -Infinity, minValBV = Infinity;
+      blueVentaPrices.forEach((val, idx) => {
+        if (val !== null && !isNaN(val)) {
+          if (val > maxValBV) { maxValBV = val; maxIdxBV = idx; }
+          if (val < minValBV) { minValBV = val; minIdxBV = idx; }
+        }
+      });
+      const pointRadiiBV = blueVentaPrices.map((val, idx) => (idx === maxIdxBV || idx === minIdxBV) ? 7 : (blueVentaPrices.length > 80 ? 0 : 3.5));
+      const pointBgColorsBV = blueVentaPrices.map((val, idx) => (idx === maxIdxBV || idx === minIdxBV) ? '#ffd60a' : '#5e5ce6');
+      const pointHoverRadiiBV = blueVentaPrices.map((val, idx) => (idx === maxIdxBV || idx === minIdxBV) ? 9 : 6);
+
+      if (showMep) {
+        datasets.push({
           label: 'Dólar MEP ($)',
           data: mepPrices,
           borderColor: '#30d158',
@@ -1681,8 +1759,10 @@ const DolaresModule = {
           maxIdx: maxIdxM,
           minIdx: minIdxM,
           formatLabel: val => '$' + formatValue(val)
-        },
-        {
+        });
+      }
+      if (showOficial) {
+        datasets.push({
           label: 'Dólar Oficial BNA ($)',
           data: oficialPrices,
           borderColor: '#ffffff',
@@ -1698,8 +1778,46 @@ const DolaresModule = {
           maxIdx: maxIdxO,
           minIdx: minIdxO,
           formatLabel: val => '$' + formatValue(val)
-        }
-      ];
+        });
+      }
+      if (showBlueCompra) {
+        datasets.push({
+          label: 'Dólar Blue Compra ($)',
+          data: blueCompraPrices,
+          borderColor: '#0a84ff',
+          backgroundColor: 'transparent',
+          fill: false,
+          tension: 0.1,
+          borderWidth: 2,
+          pointRadius: pointRadiiBC,
+          pointBackgroundColor: pointBgColorsBC,
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 1.5,
+          pointHoverRadius: pointHoverRadiiBC,
+          maxIdx: maxIdxBC,
+          minIdx: minIdxBC,
+          formatLabel: val => '$' + formatValue(val)
+        });
+      }
+      if (showBlueVenta) {
+        datasets.push({
+          label: 'Dólar Blue Venta ($)',
+          data: blueVentaPrices,
+          borderColor: '#5e5ce6',
+          backgroundColor: 'rgba(94, 92, 230, 0.1)',
+          fill: true,
+          tension: 0.1,
+          borderWidth: 2.5,
+          pointRadius: pointRadiiBV,
+          pointBackgroundColor: pointBgColorsBV,
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 1.5,
+          pointHoverRadius: pointHoverRadiiBV,
+          maxIdx: maxIdxBV,
+          minIdx: minIdxBV,
+          formatLabel: val => '$' + formatValue(val)
+        });
+      }
     } else {
       // Calcular brecha diaria
       const brechaData = filteredMep.map(d => {
@@ -1795,15 +1913,17 @@ const DolaresModule = {
     this.renderTable();
   },
 
-  renderTable(dates, filteredMep, oficialMap) {
-    if (!dates || !filteredMep || !oficialMap) {
+  renderTable(dates, filteredMep, oficialMap, blueMap) {
+    if (!dates || !filteredMep || !oficialMap || !blueMap) {
       dates = state.dolares.currentDates || [];
       filteredMep = state.dolares.currentMep || [];
       oficialMap = state.dolares.currentOficialMap || {};
+      blueMap = state.dolares.currentBlueMap || {};
     } else {
       state.dolares.currentDates = dates;
       state.dolares.currentMep = filteredMep;
       state.dolares.currentOficialMap = oficialMap;
+      state.dolares.currentBlueMap = blueMap;
     }
 
     const tbody = document.getElementById('dolaresTableBody');
@@ -1814,7 +1934,7 @@ const DolaresModule = {
     tbody.innerHTML = '';
 
     if (dates.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="text-center">No hay registros para mostrar.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center">No hay registros para mostrar.</td></tr>';
       paginationInfo.textContent = 'Mostrando 0-0 de 0 registros';
       btnPrev.disabled = true;
       btnNext.disabled = true;
@@ -1840,6 +1960,10 @@ const DolaresModule = {
       const mepItem = filteredMep.find(d => d.date === date);
       const mepVal = mepItem ? mepItem.value : null;
       const oficialVal = oficialMap[date] || null;
+      
+      const blueItem = blueMap[date] || null;
+      const blueCompraVal = blueItem ? blueItem.compra : null;
+      const blueVentaVal = blueItem ? blueItem.venta : null;
 
       let mepVarText = '-';
       let mepVarClass = '';
@@ -1867,10 +1991,16 @@ const DolaresModule = {
         }
       }
 
-      let brechaText = '-';
+      let brechaMepText = '-';
       if (mepVal !== null && oficialVal > 0) {
         const brechaVal = ((mepVal - oficialVal) / oficialVal) * 100;
-        brechaText = `${brechaVal.toFixed(2)}%`;
+        brechaMepText = `${brechaVal.toFixed(2)}%`;
+      }
+
+      let brechaBlueText = '-';
+      if (blueVentaVal !== null && oficialVal > 0) {
+        const brechaVal = ((blueVentaVal - oficialVal) / oficialVal) * 100;
+        brechaBlueText = `${brechaVal.toFixed(2)}%`;
       }
 
       const tr = document.createElement('tr');
@@ -1879,8 +2009,10 @@ const DolaresModule = {
         <td class="text-right font-medium">${mepVal ? formatValue(mepVal) : '-'}</td>
         <td class="text-right ${mepVarClass}">${mepVarText}</td>
         <td class="text-right font-medium">${oficialVal ? formatValue(oficialVal) : '-'}</td>
-        <td class="text-right ${oficialVarClass}">${oficialVarText}</td>
-        <td class="text-right font-medium" style="color: var(--theme-dolares);">${brechaText}</td>
+        <td class="text-right font-medium text-info" style="color: #0a84ff;">${blueCompraVal ? formatValue(blueCompraVal) : '-'}</td>
+        <td class="text-right font-medium" style="color: #bf5af2;">${blueVentaVal ? formatValue(blueVentaVal) : '-'}</td>
+        <td class="text-right font-medium" style="color: var(--theme-dolares);">${brechaMepText}</td>
+        <td class="text-right font-medium" style="color: #ffd60a;">${brechaBlueText}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -1894,56 +2026,102 @@ const DolaresModule = {
     const dates = state.dolares.currentDates || [];
     const filteredMep = state.dolares.currentMep || [];
     const oficialMap = state.dolares.currentOficialMap || {};
+    const blueMap = state.dolares.currentBlueMap || {};
 
     if (dates.length === 0) {
       showToast('No hay datos para exportar.', 'warning');
       return;
     }
 
+    const showOficial = document.getElementById('chkOficial').checked;
+    const showMep = document.getElementById('chkMep').checked;
+    const showBlueCompra = document.getElementById('chkBlueCompra').checked;
+    const showBlueVenta = document.getElementById('chkBlueVenta').checked;
+
+    if (!showOficial && !showMep && !showBlueCompra && !showBlueVenta) {
+      showToast('Debes seleccionar al menos un tipo de dólar para exportar.', 'warning');
+      return;
+    }
+
     const fullMep = state.dolares.historical.mep;
     const fullOficial = state.dolares.historical.oficial;
 
-    let csvContent = "Fecha;Dolar MEP;Variacion MEP;Dolar Oficial;Variacion Oficial;Brecha\n";
+    let csvHeader = "Fecha";
+    if (showMep) csvHeader += ";Dolar MEP;Variacion MEP %;Brecha MEP %";
+    if (showOficial) csvHeader += ";Dolar Oficial BNA;Variacion Oficial %";
+    if (showBlueCompra) csvHeader += ";Dolar Blue Compra";
+    if (showBlueVenta) csvHeader += ";Dolar Blue Venta;Brecha Blue %";
+    csvHeader += "\n";
+
+    let csvContent = csvHeader;
 
     // Orden cronológico (de más antiguo a más reciente)
     dates.forEach(date => {
-      const mepItem = filteredMep.find(d => d.date === date);
-      const mepVal = mepItem ? mepItem.value : null;
-      const oficialVal = oficialMap[date] || null;
+      let row = formatDate(date);
 
-      let mepVarText = '-';
-      if (mepVal !== null) {
-        const fullIdx = fullMep.findIndex(d => d.date === date);
-        if (fullIdx > 0) {
-          const prevVal = fullMep[fullIdx - 1].value;
-          const diff = mepVal - prevVal;
-          const diffPct = (diff / prevVal) * 100;
-          mepVarText = `${diff >= 0 ? '+' : ''}${diffPct.toFixed(2)}%`;
+      // MEP
+      if (showMep) {
+        const mepItem = filteredMep.find(d => d.date === date);
+        const mepVal = mepItem ? mepItem.value : null;
+        const oficialVal = oficialMap[date] || null;
+        
+        let mepVarText = '-';
+        if (mepVal !== null) {
+          const fullIdx = fullMep.findIndex(d => d.date === date);
+          if (fullIdx > 0) {
+            const prevVal = fullMep[fullIdx - 1].value;
+            const diff = mepVal - prevVal;
+            const diffPct = (diff / prevVal) * 100;
+            mepVarText = `${diff >= 0 ? '+' : ''}${diffPct.toFixed(2)}%`;
+          }
         }
-      }
-
-      let oficialVarText = '-';
-      if (oficialVal !== null) {
-        const fullIdx = fullOficial.findIndex(d => d.date === date);
-        if (fullIdx > 0) {
-          const prevVal = fullOficial[fullIdx - 1].value;
-          const diff = oficialVal - prevVal;
-          const diffPct = (diff / prevVal) * 100;
-          oficialVarText = `${diff >= 0 ? '+' : ''}${diffPct.toFixed(2)}%`;
+        let brechaMepText = '-';
+        if (mepVal !== null && oficialVal > 0) {
+          brechaMepText = `${(((mepVal - oficialVal) / oficialVal) * 100).toFixed(2)}%`;
         }
+        const mepValStr = mepVal ? String(mepVal.toFixed(2)).replace('.', ',') : '-';
+        row += `;${mepValStr};${mepVarText};${brechaMepText}`;
       }
 
-      let brechaText = '-';
-      if (mepVal !== null && oficialVal > 0) {
-        const brechaVal = ((mepVal - oficialVal) / oficialVal) * 100;
-        brechaText = `${brechaVal.toFixed(2)}%`;
+      // OFICIAL
+      if (showOficial) {
+        const oficialVal = oficialMap[date] || null;
+        let oficialVarText = '-';
+        if (oficialVal !== null) {
+          const fullIdx = fullOficial.findIndex(d => d.date === date);
+          if (fullIdx > 0) {
+            const prevVal = fullOficial[fullIdx - 1].value;
+            const diff = oficialVal - prevVal;
+            const diffPct = (diff / prevVal) * 100;
+            oficialVarText = `${diff >= 0 ? '+' : ''}${diffPct.toFixed(2)}%`;
+          }
+        }
+        const oficialValStr = oficialVal ? String(oficialVal.toFixed(2)).replace('.', ',') : '-';
+        row += `;${oficialValStr};${oficialVarText}`;
       }
 
-      // Formatear decimales con coma para Excel local en español
-      const mepValStr = mepVal ? String(mepVal.toFixed(2)).replace('.', ',') : '-';
-      const oficialValStr = oficialVal ? String(oficialVal.toFixed(2)).replace('.', ',') : '-';
+      // BLUE COMPRA
+      if (showBlueCompra) {
+        const blueItem = blueMap[date] || null;
+        const blueCompraVal = blueItem ? blueItem.compra : null;
+        const blueCompraValStr = blueCompraVal ? String(blueCompraVal.toFixed(2)).replace('.', ',') : '-';
+        row += `;${blueCompraValStr}`;
+      }
 
-      csvContent += `${formatDate(date)};${mepValStr};${mepVarText};${oficialValStr};${oficialVarText};${brechaText}\n`;
+      // BLUE VENTA
+      if (showBlueVenta) {
+        const blueItem = blueMap[date] || null;
+        const blueVentaVal = blueItem ? blueItem.venta : null;
+        const oficialVal = oficialMap[date] || null;
+        let brechaBlueText = '-';
+        if (blueVentaVal !== null && oficialVal > 0) {
+          brechaBlueText = `${(((blueVentaVal - oficialVal) / oficialVal) * 100).toFixed(2)}%`;
+        }
+        const blueVentaValStr = blueVentaVal ? String(blueVentaVal.toFixed(2)).replace('.', ',') : '-';
+        row += `;${blueVentaValStr};${brechaBlueText}`;
+      }
+
+      csvContent += row + "\n";
     });
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });

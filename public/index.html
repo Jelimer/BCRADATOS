@@ -486,7 +486,12 @@
                 </div>
                 <div class="kpi-info">
                   <span class="kpi-label">Dólar Blue (Informal)</span>
-                  <h4 class="kpi-value" id="dolarBlueValue">-</h4>
+                  <div style="display: flex; gap: 8px; align-items: baseline; margin-top: 3px;">
+                    <span style="font-size: 11px; color: var(--text-secondary);">C:</span>
+                    <span id="dolarBlueCompraValue" class="kpi-value" style="font-size: 16px; font-weight: 700; color: var(--text-main);">-</span>
+                    <span style="font-size: 11px; color: var(--text-secondary); margin-left: 5px;">V:</span>
+                    <span id="dolarBlueVentaValue" class="kpi-value" style="font-size: 16px; font-weight: 700; color: var(--text-main);">-</span>
+                  </div>
                   <span class="kpi-subtext" id="brechaBlueValue">Brecha: -%</span>
                 </div>
               </div>
@@ -570,6 +575,28 @@
                   </button>
                 </div>
               </div>
+              
+              <!-- Selector de variables para el gráfico de cotizaciones -->
+              <div id="dolarSelectorContainer" style="display: flex; gap: 20px; align-items: center; padding: 10px 20px; background: rgba(255,255,255,0.01); border-bottom: 1px solid rgba(255,255,255,0.05); flex-wrap: wrap;">
+                <span style="font-size: 12.5px; color: var(--text-secondary); font-weight: 500;">Mostrar en gráfico:</span>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-main); cursor: pointer; user-select: none;">
+                  <input type="checkbox" id="chkOficial" checked style="accent-color: #ffffff; cursor: pointer; width: 14px; height: 14px;">
+                  Oficial BNA
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-main); cursor: pointer; user-select: none;">
+                  <input type="checkbox" id="chkMep" checked style="accent-color: #30d158; cursor: pointer; width: 14px; height: 14px;">
+                  MEP (Bolsa)
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-main); cursor: pointer; user-select: none;">
+                  <input type="checkbox" id="chkBlueCompra" checked style="accent-color: #0a84ff; cursor: pointer; width: 14px; height: 14px;">
+                  Blue Compra
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-main); cursor: pointer; user-select: none;">
+                  <input type="checkbox" id="chkBlueVenta" checked style="accent-color: #5e5ce6; cursor: pointer; width: 14px; height: 14px;">
+                  Blue Venta
+                </label>
+              </div>
+
               <div class="chart-wrapper">
                 <canvas id="dolaresChart"></canvas>
               </div>
@@ -589,8 +616,10 @@
                       <th scope="col" class="text-right">Dólar MEP ($)</th>
                       <th scope="col" class="text-right">Var % MEP</th>
                       <th scope="col" class="text-right">Dólar Oficial ($)</th>
-                      <th scope="col" class="text-right">Var % Oficial</th>
-                      <th scope="col" class="text-right">Brecha %</th>
+                      <th scope="col" class="text-right">Blue Compra ($)</th>
+                      <th scope="col" class="text-right">Blue Venta ($)</th>
+                      <th scope="col" class="text-right">Brecha MEP %</th>
+                      <th scope="col" class="text-right">Brecha Blue %</th>
                     </tr>
                   </thead>
                   <tbody id="dolaresTableBody">
