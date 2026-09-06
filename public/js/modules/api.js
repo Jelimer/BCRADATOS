@@ -122,8 +122,7 @@ export async function fetchDolarBlueHistorical() {
 
 export async function fetchBymaPanel() {
   const res = await fetchWithTimeout('/api/byma/panel/public-bonds', { timeout: 10000 });
-  const data = await parseJsonResponse(res, 'Error al consultar panel de bonos en BYMA');
-  return Array.isArray(data) ? data : (data.data || data.results || []);
+  return await parseJsonResponse(res, 'Error al consultar panel de bonos en BYMA');
 }
 
 export async function fetchBymaBondInfo(symbol) {
@@ -132,9 +131,16 @@ export async function fetchBymaBondInfo(symbol) {
 }
 
 export async function fetchBymaHistorical(symbol, from, to) {
-  const url = `/api/byma/historico/${encodeURIComponent(symbol)}?resolution=D&from=${from}&to=${to}`;
+  let url = `/api/byma/historico/${encodeURIComponent(symbol)}?resolution=D`;
+  if (from) url += `&from=${from}`;
+  if (to) url += `&to=${to}`;
   const res = await fetchWithTimeout(url, { timeout: 12000 });
   return await parseJsonResponse(res, `Error al consultar histórico de ${symbol}`);
+}
+
+export async function fetchBymaIndicadores() {
+  const res = await fetchWithTimeout('/api/byma/indicadores', { timeout: 8000 });
+  return await parseJsonResponse(res, 'Error al consultar indicadores de bonos');
 }
 
 // ==========================================

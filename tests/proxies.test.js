@@ -72,6 +72,15 @@ describe('Tier 1: External Proxies & Market Endpoints Tests', () => {
         assert.ok(res.data.error === true || typeof res.data.message === 'string', 'Debe retornar objeto de error/contingencia esperado');
       }
     });
+
+    it('12.3. Debe consultar indicadores macro de bonos y mercado (/api/byma/indicadores)', async () => {
+      const res = await defaultTestServer.get('/api/byma/indicadores');
+      assert.equal(res.status, 200, 'BYMA indicadores debe responder HTTP 200');
+      assert.ok(res.data, 'Debe devolver datos de indicadores');
+      assert.ok('riesgoPais' in res.data, 'Debe incluir objeto riesgoPais');
+      assert.ok('mepAl30' in res.data, 'Debe incluir cotización implícita de MEP AL30');
+      assert.ok(typeof res.data.mepAl30 === 'number', 'mepAl30 debe ser numérico');
+    });
   });
 
   // Feature 13: DolarApi en Vivo

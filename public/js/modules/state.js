@@ -126,7 +126,13 @@ export const appState = {
   byma: {
     bonds: [],
     selectedBond: null,
-    searchQuery: ''
+    searchQuery: '',
+    category: 'all', // 'all', 'soberano_usd', 'soberano_cer', 'lecap'
+    chart: null,
+    chartRange: '6M', // '1M', '3M', '6M', '1A', 'all'
+    marketOpen: false,
+    isFallback: false,
+    indicadores: null
   },
 
   // Módulo COMPARADOR BANCARIO

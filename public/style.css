@@ -1310,6 +1310,23 @@ body.dark-theme .pill-btn.active {
   background-color: var(--bg-primary);
 }
 
+.byma-categories-bar {
+  background-color: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
+  padding: 10px 14px;
+}
+
+.byma-categories-bar .range-btn {
+  font-size: 11.5px;
+  padding: 4px 10px;
+}
+
+.byma-categories-bar .range-btn.active {
+  background-color: var(--theme-byma);
+  color: #000;
+  font-weight: 700;
+}
+
 .byma-table {
   width: 100%;
   border-collapse: collapse;

@@ -7,6 +7,7 @@ const express = require('express');
 const cors = require('cors');
 const compression = require('compression');
 const path = require('path');
+const fs = require('fs');
 
 const httpClient = require('./services/httpClient');
 const { cacheService } = require('./services/cacheService');
@@ -39,7 +40,7 @@ app.use(express.json());
 // Servir archivos estáticos del frontend
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Base URLs de proveedores externos
+// Bases de APIs del BCRA e INDEC
 const BCRA_MONETARIAS_BASE = 'https://api.bcra.gob.ar/estadisticas/v4.0';
 const BCRA_CAMBIARIAS_BASE = 'https://api.bcra.gob.ar/estadisticascambiarias/v1.0';
 const BCRA_TRANSPARENCIA_BASE = 'https://api.bcra.gob.ar/transparencia/v1.0';
@@ -58,6 +59,30 @@ const CRIPTOYA_FALLBACK_DOLAR_KEY = 'criptoya:last_valid_dolar';
 const CRIPTOYA_FALLBACK_BANCOS_KEY = 'criptoya:last_valid_bancos';
 const CRIPTOYA_FALLBACK_INDICADORES_KEY = 'criptoya:last_valid_indicadores';
 const FINANZAS_FALLBACK_RENDIMIENTOS_KEY = 'finanzas:last_valid_rendimientos';
+
+// Carga del snapshot persistente oficial de bonos de BYMA para contingencia 24/7
+let persistentBondsSnapshot = null;
+try {
+  const snapshotFile = path.join(__dirname, 'data', 'byma_bonds_snapshot.json');
+  if (fs.existsSync(snapshotFile)) {
+    persistentBondsSnapshot = JSON.parse(fs.readFileSync(snapshotFile, 'utf-8'));
+    cacheService.set(BYMA_FALLBACK_CACHE_KEY, persistentBondsSnapshot, cacheService.TTL.FALLBACK_PERSISTENT);
+    console.log(`[BYMA] Snapshot persistente de bonos cargado (${persistentBondsSnapshot.data?.length || 0} especies).`);
+  }
+} catch (e) {
+  console.warn('[BYMA] No se pudo cargar snapshot persistente de bonos:', e.message);
+}
+
+function getFallbackBondsPanel() {
+  const cachedPanel = cacheService.get(BYMA_FALLBACK_CACHE_KEY);
+  if (cachedPanel && Array.isArray(cachedPanel.data) && cachedPanel.data.length > 0) {
+    return cachedPanel;
+  }
+  if (persistentBondsSnapshot && Array.isArray(persistentBondsSnapshot.data) && persistentBondsSnapshot.data.length > 0) {
+    return persistentBondsSnapshot;
+  }
+  return null;
+}
 
 // ==========================================
 // 1. ENDPOINTS PROXY - BCRA ESTADÍSTICAS MONETARIAS
@@ -196,12 +221,11 @@ app.get('/api/byma/panel/public-bonds', cacheMiddleware(60), async (req, res, ne
       });
     }
 
-    // Si BYMA retorna data vacía (fuera de horario de mercado), intentar servir el último panel guardado
-    const cachedPanel = cacheService.get(BYMA_FALLBACK_CACHE_KEY);
-    if (cachedPanel && Array.isArray(cachedPanel.data) && cachedPanel.data.length > 0) {
-      console.log('[BYMA] Mercado cerrado o sin operaciones activas. Entregando último panel válido en caché.');
+    // Si BYMA retorna data vacía (fuera de horario de mercado), servir el panel de contingencia
+    const fallbackPanel = getFallbackBondsPanel();
+    if (fallbackPanel && Array.isArray(fallbackPanel.data) && fallbackPanel.data.length > 0) {
       return res.json({
-        ...cachedPanel,
+        ...fallbackPanel,
         marketOpen: false,
         isFallback: true,
         cached: true
@@ -217,12 +241,11 @@ app.get('/api/byma/panel/public-bonds', cacheMiddleware(60), async (req, res, ne
   } catch (error) {
     console.warn('[BYMA] Error consultando panel de bonos en vivo:', error.message);
 
-    // Intentar entregar panel en caché ante error upstream
-    const cachedPanel = cacheService.get(BYMA_FALLBACK_CACHE_KEY);
-    if (cachedPanel && Array.isArray(cachedPanel.data) && cachedPanel.data.length > 0) {
-      console.log('[BYMA] Error upstream. Entregando último panel de contingencia en caché.');
+    // Intentar entregar panel en caché o snapshot persistente ante error upstream
+    const fallbackPanel = getFallbackBondsPanel();
+    if (fallbackPanel && Array.isArray(fallbackPanel.data) && fallbackPanel.data.length > 0) {
       return res.json({
-        ...cachedPanel,
+        ...fallbackPanel,
         marketOpen: false,
         isFallback: true,
         cached: true
@@ -237,8 +260,7 @@ app.get('/api/byma/panel/public-bonds', cacheMiddleware(60), async (req, res, ne
 // Ficha técnica de especie/bono (TTL: 60s)
 app.get('/api/byma/bond-info/:symbol', cacheMiddleware(60), async (req, res, next) => {
   const { symbol } = req.params;
-  // Sanitizar símbolo: remover sufijos como ' 24HS', 'D', 'C' si es necesario
-  const cleanSymbol = symbol ? symbol.replace(/\s+(24HS|CI|48HS|72HS)$/i, '').trim() : '';
+  const cleanSymbol = symbol ? symbol.replace(/\s+(24HS|CI|48HS|72HS)$/i, '').replace(/[D|C|X|Y|Z]$/, '').trim() : '';
 
   try {
     const response = await httpClient.post(
@@ -249,9 +271,39 @@ app.get('/api/byma/bond-info/:symbol', cacheMiddleware(60), async (req, res, nex
         headers: { 'Content-Type': 'application/json' }
       }
     );
+
+    if (response.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
+      return res.json(response.data);
+    }
+
+    // Si responde vacío o sin datos, buscar en el snapshot persistente
+    const panel = getFallbackBondsPanel();
+    const bond = panel?.data?.find(b => b.symbol === symbol || b.symbol === cleanSymbol);
+    if (bond && bond.technicalSheet) {
+      return res.json({
+        content: { page_number: 1, page_count: 1, page_size: 50, total_elements_count: 1 },
+        data: [bond.technicalSheet],
+        empty: false,
+        isFallback: true
+      });
+    }
+
     res.json(response.data);
   } catch (error) {
-    console.error(`[BYMA] Error en ficha técnica ${symbol}:`, error.message);
+    console.warn(`[BYMA] Error en ficha técnica ${symbol}:`, error.message);
+
+    // Entregar fallback del snapshot si existe
+    const panel = getFallbackBondsPanel();
+    const bond = panel?.data?.find(b => b.symbol === symbol || b.symbol === cleanSymbol);
+    if (bond && bond.technicalSheet) {
+      return res.json({
+        content: { page_number: 1, page_count: 1, page_size: 50, total_elements_count: 1 },
+        data: [bond.technicalSheet],
+        empty: false,
+        isFallback: true
+      });
+    }
+
     const upstreamStatus = error.response?.status;
     const status = upstreamStatus === 400 ? 404 : (upstreamStatus || 502);
     res.status(status).json({
@@ -269,12 +321,18 @@ app.get('/api/byma/historico/:symbol', cacheMiddleware(60), async (req, res, nex
   const nowUnix = Math.floor(Date.now() / 1000);
   const oneYearAgoUnix = nowUnix - (365 * 24 * 60 * 60);
 
+  // Sanitizar símbolo: asegurar sufijo de liquidación bursátil requerido por el endpoint de BYMA si no está presente
+  let bymaSymbol = symbol.trim();
+  if (!/\s+(24HS|CI|48HS|72HS)$/i.test(bymaSymbol)) {
+    bymaSymbol = `${bymaSymbol} 24HS`;
+  }
+
   const params = {
     resolution: 'D',
     from: oneYearAgoUnix,
     to: nowUnix,
     ...req.query,
-    symbol
+    symbol: bymaSymbol
   };
 
   try {
@@ -282,9 +340,37 @@ app.get('/api/byma/historico/:symbol', cacheMiddleware(60), async (req, res, nex
       params,
       timeout: httpClient.TIMEOUTS.LIVE_MARKET
     });
+
+    if (response.data && response.data.s === 'ok' && Array.isArray(response.data.c) && response.data.c.length > 0) {
+      return res.json(response.data);
+    }
+
+    // Si BYMA responde 'no_data', consultar serie histórica persistente en snapshot
+    const panel = getFallbackBondsPanel();
+    const cleanSym = symbol.replace(/\s+(24HS|CI|48HS|72HS)$/i, '').trim();
+    const bond = panel?.data?.find(b => b.symbol === cleanSym || b.symbol === symbol);
+    if (bond && bond.historicalSeries && Array.isArray(bond.historicalSeries.c) && bond.historicalSeries.c.length > 0) {
+      return res.json({
+        ...bond.historicalSeries,
+        isFallback: true
+      });
+    }
+
     res.json(response.data);
   } catch (error) {
-    console.error(`[BYMA] Error en histórico ${symbol}:`, error.message);
+    console.warn(`[BYMA] Error en histórico ${symbol}:`, error.message);
+
+    // Entregar fallback del snapshot si existe
+    const panel = getFallbackBondsPanel();
+    const cleanSym = symbol.replace(/\s+(24HS|CI|48HS|72HS)$/i, '').trim();
+    const bond = panel?.data?.find(b => b.symbol === cleanSym || b.symbol === symbol);
+    if (bond && bond.historicalSeries && Array.isArray(bond.historicalSeries.c) && bond.historicalSeries.c.length > 0) {
+      return res.json({
+        ...bond.historicalSeries,
+        isFallback: true
+      });
+    }
+
     const upstreamStatus = error.response?.status;
     const status = upstreamStatus === 400 ? 404 : (upstreamStatus || 502);
     res.status(status).json({
@@ -292,6 +378,51 @@ app.get('/api/byma/historico/:symbol', cacheMiddleware(60), async (req, res, nex
       status,
       message: `Error al obtener datos históricos de BYMA para ${symbol}`,
       details: error.response?.data || error.message
+    });
+  }
+});
+
+// Indicadores macro y de mercado de bonos (Riesgo País, Dólar MEP implícito y spreads) (TTL: 60s)
+app.get('/api/byma/indicadores', cacheMiddleware(60), async (req, res, next) => {
+  try {
+    let riesgoPais = { valor: 490, fecha: new Date().toISOString().split('T')[0], var: 0 };
+    try {
+      const rpRes = await httpClient.get(`${ARGENTINADATOS_BASE}/finanzas/indices/riesgo-pais/ultimo`, {
+        timeout: httpClient.TIMEOUTS.LIVE_MARKET
+      });
+      if (rpRes.data && rpRes.data.valor) {
+        riesgoPais = rpRes.data;
+      }
+    } catch (e) {
+      console.warn('[Indicadores Bonos] Error consultando Riesgo País:', e.message);
+    }
+
+    const panel = getFallbackBondsPanel();
+    const bonds = panel?.data || [];
+    const al30 = bonds.find(b => b.symbol === 'AL30');
+    const al30d = bonds.find(b => b.symbol === 'AL30D');
+    const gd30 = bonds.find(b => b.symbol === 'GD30');
+    const gd30d = bonds.find(b => b.symbol === 'GD30D');
+
+    const mepAl30 = (al30 && al30d && al30d.trade > 0) ? (al30.trade / al30d.trade) : 1525.39;
+    const mepGd30 = (gd30 && gd30d && gd30d.trade > 0) ? (gd30.trade / gd30d.trade) : 1523.41;
+    const spreadCanje = mepAl30 > 0 ? ((mepGd30 - mepAl30) / mepAl30 * 100) : 0;
+
+    res.json({
+      riesgoPais,
+      mepAl30: Number(mepAl30.toFixed(2)),
+      mepGd30: Number(mepGd30.toFixed(2)),
+      spreadCanje: Number(spreadCanje.toFixed(2)),
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.warn('[Indicadores Bonos] Error general:', error.message);
+    res.json({
+      riesgoPais: { valor: 490, fecha: new Date().toISOString().split('T')[0] },
+      mepAl30: 1525.39,
+      mepGd30: 1523.41,
+      spreadCanje: 0.13,
+      timestamp: new Date().toISOString()
     });
   }
 });

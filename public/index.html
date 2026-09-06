@@ -671,23 +671,80 @@
             <p>Descargando panel de bonos y letras de BYMA...</p>
           </div>
 
+          <!-- Fila 1: Estado del Mercado e Indicadores Soberanos -->
+          <div class="kpi-row" id="bymaKpiRow" style="margin-bottom: 20px;">
+            <div class="kpi-card card-dolar-glow" id="cardRiesgoPais">
+              <div class="kpi-icon-wrapper" style="background: rgba(255, 69, 58, 0.15); color: #ff453a;">
+                <i class="fa-solid fa-chart-line-up"></i>
+              </div>
+              <div class="kpi-info">
+                <span class="kpi-label">Riesgo País (EMBI+)</span>
+                <h4 class="kpi-value" id="bymaRiesgoPaisValue">490 pts</h4>
+                <span class="kpi-subtext" id="bymaRiesgoPaisSubtext">JP Morgan / ArgentinaDatos</span>
+              </div>
+            </div>
+
+            <div class="kpi-card card-dolar-glow" id="cardMepAl30">
+              <div class="kpi-icon-wrapper" style="background: rgba(48, 209, 88, 0.15); color: #30d158;">
+                <i class="fa-solid fa-money-bill-transfer"></i>
+              </div>
+              <div class="kpi-info">
+                <span class="kpi-label">Dólar MEP (AL30 / AL30D)</span>
+                <h4 class="kpi-value" id="bymaMepAl30Value">$1.525,39</h4>
+                <span class="kpi-subtext" id="bymaMepAl30Subtext">Tipo de cambio implícito</span>
+              </div>
+            </div>
+
+            <div class="kpi-card card-dolar-glow" id="cardMepGd30">
+              <div class="kpi-icon-wrapper" style="background: rgba(10, 132, 255, 0.15); color: #0a84ff;">
+                <i class="fa-solid fa-globe"></i>
+              </div>
+              <div class="kpi-info">
+                <span class="kpi-label">Dólar CCL / Global (GD30)</span>
+                <h4 class="kpi-value" id="bymaMepGd30Value">$1.523,41</h4>
+                <span class="kpi-subtext" id="bymaSpreadSubtext">Spread Arbitraje: 0.13%</span>
+              </div>
+            </div>
+
+            <div class="kpi-card card-dolar-glow" id="cardMercadoStatus">
+              <div class="kpi-icon-wrapper" style="background: rgba(255, 214, 10, 0.15); color: #ffd60a;">
+                <i class="fa-solid fa-building-columns"></i>
+              </div>
+              <div class="kpi-info">
+                <span class="kpi-label">Estado de Mercado</span>
+                <h4 class="kpi-value" id="bymaMarketStatusText" style="font-size: 16px;">Mercado Cerrado</h4>
+                <span class="kpi-subtext" id="bymaMarketStatusSubtext">Precios de último cierre oficial</span>
+              </div>
+            </div>
+          </div>
+
           <div class="byma-grid" id="bymaContent">
             
             <!-- Panel Izquierdo: Lista de Títulos -->
             <div class="main-card byma-list-card">
               <div class="byma-list-header">
-                <h3>Panel de Títulos Públicos</h3>
+                <div>
+                  <h3>Panel de Títulos Públicos</h3>
+                  <span id="bymaCountBadge" style="font-size: 12px; color: var(--text-secondary);">26 especies activas</span>
+                </div>
                 <div class="search-box byma-search">
                   <i class="fa-solid fa-magnifying-glass search-icon"></i>
-                  <input type="text" id="bymaSearchInput" placeholder="Filtrar por ticker (ej: AL30, TO26, S30...)" aria-label="Buscar bonos o letras">
+                  <input type="text" id="bymaSearchInput" placeholder="Filtrar por ticker (ej: AL30, GD30, TX26...)" aria-label="Buscar bonos o letras">
                 </div>
+              </div>
+              <!-- Filtros de categoría de bonos -->
+              <div class="quick-ranges byma-categories-bar" id="bymaCategoryFilters" style="padding: 10px 16px; border-bottom: 1px solid var(--border-color); display: flex; gap: 6px; flex-wrap: wrap;">
+                <button class="range-btn active" data-cat="all">Todos</button>
+                <button class="range-btn" data-cat="soberano_usd">Soberanos USD</button>
+                <button class="range-btn" data-cat="soberano_cer">CER / Pesos</button>
+                <button class="range-btn" data-cat="lecap">Letras (LECAP)</button>
               </div>
               <div class="byma-table-wrapper">
                 <table class="byma-table" id="bymaTable">
                   <thead>
                     <tr>
                       <th scope="col">Ticker</th>
-                      <th scope="col" class="text-right">Precio ($)</th>
+                      <th scope="col" class="text-right">Precio</th>
                       <th scope="col" class="text-right">Var %</th>
                       <th scope="col" class="text-right">Volumen</th>
                     </tr>
@@ -699,22 +756,46 @@
               </div>
             </div>
 
-            <!-- Panel Derecho: Ficha Técnica Detallada -->
+            <!-- Panel Derecho: Ficha Técnica Detallada y Gráfico Histórico -->
             <div class="main-card byma-info-card">
               <div class="byma-info-header" id="bymaInfoTitleWrapper">
                 <i class="fa-solid fa-money-bill-trend-up info-icon" style="color: #ffd60a;"></i>
-                <div>
-                  <h3 id="bymaBonoName">AE38</h3>
-                  <p id="bymaBonoDesc">Bono de la República Argentina 2038</p>
+                <div style="flex: 1;">
+                  <div style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;">
+                    <h3 id="bymaBonoName">AL30</h3>
+                    <span id="bymaBonoCcyBadge" class="badge" style="background: rgba(255,255,255,0.1); color: var(--text-primary); font-size: 11px; padding: 2px 8px; border-radius: 4px;">ARS</span>
+                    <span id="bymaBonoPriceDisplay" style="font-size: 20px; font-weight: 700; color: var(--text-primary); margin-left: auto;">$85.300,00</span>
+                    <span id="bymaBonoVarDisplay" style="font-size: 14px; font-weight: 600;" class="text-success">+0.08%</span>
+                  </div>
+                  <p id="bymaBonoDesc">Bonares de la Rep. Argentina en USD Step Up 2030</p>
                 </div>
               </div>
               <div class="byma-info-body" id="bymaInfoBody">
-                <div class="no-selection-state" id="bymaNoSelection">
+                <div class="no-selection-state hidden" id="bymaNoSelection">
                   <i class="fa-solid fa-arrow-left animate-bounce-horizontal"></i>
-                  <p>Selecciona una especie del panel izquierdo para analizar sus condiciones de emisión y el esquema de cupones de amortización.</p>
+                  <p>Selecciona una especie del panel izquierdo para analizar sus condiciones de emisión, gráfico histórico y flujo de fondos.</p>
                 </div>
                 
-                <div class="bono-data-container hidden" id="bymaBonoData">
+                <div class="bono-data-container" id="bymaBonoData">
+                  <!-- Gráfico interactivo de evolución histórica -->
+                  <div class="main-card chart-container-card" style="padding: 16px; margin-bottom: 16px; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
+                    <div class="card-header-controls" style="margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                      <div class="section-title-sm" style="color: var(--theme-byma);">
+                        <i class="fa-solid fa-chart-line"></i> Evolución Histórica de Cotización
+                      </div>
+                      <div class="quick-ranges" id="bymaChartRanges">
+                        <button class="range-btn" data-days="30">1M</button>
+                        <button class="range-btn" data-days="90">3M</button>
+                        <button class="range-btn active" data-days="180">6M</button>
+                        <button class="range-btn" data-days="365">1A</button>
+                        <button class="range-btn" data-days="all">Todo</button>
+                      </div>
+                    </div>
+                    <div class="chart-wrapper" style="height: 280px; position: relative;">
+                      <canvas id="bymaBonoChart"></canvas>
+                    </div>
+                  </div>
+
                   <!-- Detalles generales -->
                   <div class="details-grid">
                     <div class="detail-item">
