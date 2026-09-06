@@ -435,13 +435,22 @@ export const tabConsultas = {
       selectWrapper.classList.remove('hidden');
     }
 
-    // 2. Llenar la tabla histórica de los 24 meses
+    // 2. Llenar la tabla histórica de los 24 meses con filas acordeón expandibles (+)
     if (tableBody) {
       tableBody.innerHTML = '';
       processedPeriods.forEach(p => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td class="font-medium">${p.periodoFormatted}${p.isLatest ? ' <span style="font-size:11px; background:rgba(48,209,88,0.15); color:#30d158; padding:2px 6px; border-radius:4px;">Actual</span>' : ''}</td>
+        // Fila principal del período
+        const trMain = document.createElement('tr');
+        trMain.className = 'historico-row-main';
+        trMain.setAttribute('data-periodo', p.rawPeriodo);
+        trMain.innerHTML = `
+          <td class="font-medium" style="white-space: nowrap;">
+            <button type="button" class="btn-expand-periodo" data-expand-periodo="${p.rawPeriodo}" title="Desplegar entidades de ${p.periodoFormatted}">
+              <i class="fa-solid fa-plus"></i>
+            </button>
+            <span>${p.periodoFormatted}</span>
+            ${p.isLatest ? ' <span style="font-size:11px; background:rgba(48,209,88,0.15); color:#30d158; padding:2px 6px; border-radius:4px; margin-left:4px;">Actual</span>' : ''}
+          </td>
           <td class="text-right font-medium">$${formatValue(p.totalDeuda)}</td>
           <td class="text-center">
             <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${this.getColorForSituacion(p.peorSit)}; margin-right:6px;"></span>
@@ -449,22 +458,102 @@ export const tabConsultas = {
           </td>
           <td class="text-center">${p.cantEntidades} ${p.cantEntidades === 1 ? 'banco' : 'bancos'}</td>
           <td class="text-center">
-            <button type="button" class="btn btn-outline btn-sm" data-select-periodo="${p.rawPeriodo}" style="font-size:11px; padding:3px 8px; cursor:pointer;">
-              Ver detalle
+            <button type="button" class="btn btn-outline btn-sm btn-detalle-trigger" data-periodo-btn="${p.rawPeriodo}" style="font-size:11px; padding:4px 10px; cursor:pointer; display:inline-flex; align-items:center; gap:5px;">
+              <i class="fa-solid fa-chevron-down"></i> <span>Ver bancos</span>
             </button>
           </td>
         `;
-        const btn = tr.querySelector('button');
-        if (btn) {
-          btn.addEventListener('click', () => {
-            if (selectEl) selectEl.value = p.rawPeriodo;
-            this.selectPeriodo(p.rawPeriodo);
-            // Scroll suave hacia la tabla de deudas
-            const tableEl = document.getElementById('deudasTable');
-            if (tableEl) tableEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          });
-        }
-        tableBody.appendChild(tr);
+
+        // Fila acordeón expandible (subrow)
+        const trSub = document.createElement('tr');
+        trSub.className = 'historico-subrow hidden';
+        trSub.id = `subrow-${p.rawPeriodo}`;
+
+        const entsActivas = p.entidades || [];
+        const rawItem = this.periodosHistoricos.find(x => String(x.periodo) === String(p.rawPeriodo));
+        const totalEntsConsultadas = rawItem?.entidades?.length || 0;
+        const otrasEntsCount = Math.max(0, totalEntsConsultadas - entsActivas.length);
+
+        trSub.innerHTML = `
+          <td colspan="5">
+            <div class="historico-subcard">
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(255,255,255,0.03); border-radius: 6px; margin-bottom: 12px; border-left: 3px solid ${this.getColorForSituacion(p.peorSit)}; flex-wrap: wrap; gap: 8px;">
+                <span style="font-size: 13px; color: var(--text-main);">
+                  <i class="fa-solid fa-building-columns" style="color: #bf5af2; margin-right: 6px;"></i>
+                  Entidades informantes para <strong>${p.periodoFormatted}</strong> (Deuda Consolidada: <strong>$${formatValue(p.totalDeuda)}</strong>)
+                </span>
+                <span style="font-size: 12px; color: var(--text-secondary);">
+                  Peor calificación: <strong style="color:${this.getColorForSituacion(p.peorSit)};">Situación ${p.peorSit} (${this.getNombreSituacion(p.peorSit)})</strong>
+                </span>
+              </div>
+              ${entsActivas.length > 0 ? `
+                <div class="table-wrapper" style="margin: 0;">
+                  <table class="mini-data-table">
+                    <thead>
+                      <tr>
+                        <th style="text-align: left;">Banco / Entidad Otorgante</th>
+                        <th class="text-right">Monto Deuda ($)</th>
+                        <th class="text-center">Situación Crediticia</th>
+                        <th class="text-center">Estado Oficial</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${entsActivas.map(e => {
+                        const sit = parseInt(e.situacion || 1, 10);
+                        const montoPesos = parseFloat(e.monto || 0) * 1000;
+                        return `
+                          <tr>
+                            <td class="font-medium">${e.entidad || 'Entidad Financiera'}</td>
+                            <td class="text-right font-medium">$${formatValue(montoPesos)}</td>
+                            <td class="text-center">
+                              <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${this.getColorForSituacion(sit)}; margin-right:6px;"></span>
+                              Sit. ${sit} (${this.getNombreSituacion(sit)})
+                            </td>
+                            <td class="text-center" style="font-size: 11.5px; color: ${e.procesoJud ? '#ff453a' : (e.enRevision ? '#ff9500' : '#30d158')};">
+                              ${e.procesoJud ? '<i class="fa-solid fa-gavel"></i> Proceso Judicial' : (e.enRevision ? '<i class="fa-solid fa-rotate"></i> En Revisión' : '<i class="fa-solid fa-check"></i> Normal')}
+                            </td>
+                          </tr>
+                        `;
+                      }).join('')}
+                    </tbody>
+                  </table>
+                </div>
+                ${otrasEntsCount > 0 ? `
+                  <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px; text-align: right;">
+                    <i class="fa-solid fa-circle-info"></i> ${otrasEntsCount} entidad(es) adicional(es) consultada(s) sin saldo deudor en este período.
+                  </div>
+                ` : ''}
+              ` : `
+                <div style="padding: 12px; text-align: center; color: #30d158; font-size: 13px;">
+                  <i class="fa-solid fa-circle-check" style="margin-right: 6px;"></i>
+                  No se registraron deudas activas ni morosidad informadas en este período.
+                </div>
+              `}
+            </div>
+          </td>
+        `;
+
+        // Event listener para desplegar/contraer
+        const toggleHandler = () => {
+          this.toggleSubrow(p.rawPeriodo);
+          if (selectEl) selectEl.value = p.rawPeriodo;
+          this.selectPeriodo(p.rawPeriodo, false);
+        };
+
+        trMain.querySelector('.btn-expand-periodo')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleHandler();
+        });
+
+        trMain.querySelector('.btn-detalle-trigger')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleHandler();
+        });
+
+        trMain.addEventListener('click', toggleHandler);
+
+        tableBody.appendChild(trMain);
+        tableBody.appendChild(trSub);
       });
     }
 
@@ -472,6 +561,36 @@ export const tabConsultas = {
     this.renderHistoryChart(processedPeriods);
 
     histContainer.classList.remove('hidden');
+  },
+
+  toggleSubrow(periodoStr, forceOpen = false) {
+    const subrow = document.getElementById(`subrow-${periodoStr}`);
+    const btnExpand = document.querySelector(`[data-expand-periodo="${periodoStr}"]`);
+    const btnDetalle = document.querySelector(`[data-periodo-btn="${periodoStr}"]`);
+    if (!subrow) return;
+
+    const isCurrentlyHidden = subrow.classList.contains('hidden');
+    const shouldOpen = forceOpen ? true : isCurrentlyHidden;
+
+    if (shouldOpen) {
+      subrow.classList.remove('hidden');
+      if (btnExpand) {
+        btnExpand.classList.add('expanded');
+        btnExpand.innerHTML = '<i class="fa-solid fa-minus"></i>';
+      }
+      if (btnDetalle) {
+        btnDetalle.innerHTML = '<i class="fa-solid fa-chevron-up"></i> <span>Ocultar</span>';
+      }
+    } else {
+      subrow.classList.add('hidden');
+      if (btnExpand) {
+        btnExpand.classList.remove('expanded');
+        btnExpand.innerHTML = '<i class="fa-solid fa-plus"></i>';
+      }
+      if (btnDetalle) {
+        btnDetalle.innerHTML = '<i class="fa-solid fa-chevron-down"></i> <span>Ver bancos</span>';
+      }
+    }
   },
 
   renderHistoryChart(processedPeriods) {
@@ -584,7 +703,18 @@ export const tabConsultas = {
             if (targetPeriod) {
               const selectEl = document.getElementById('deudorPeriodoSelect');
               if (selectEl) selectEl.value = targetPeriod.rawPeriodo;
-              this.selectPeriodo(targetPeriod.rawPeriodo);
+              this.selectPeriodo(targetPeriod.rawPeriodo, true);
+
+              // Asegurar que la tabla histórica esté visible y desplegar el subrow
+              const wrapper = document.getElementById('deudorHistoricoTableWrapper');
+              const btnToggleHistTable = document.getElementById('btnToggleHistoricoTable');
+              if (wrapper && wrapper.classList.contains('hidden')) {
+                wrapper.classList.remove('hidden');
+                if (btnToggleHistTable) btnToggleHistTable.innerHTML = '<i class="fa-solid fa-eye-slash"></i> Ocultar Tabla';
+              }
+              this.toggleSubrow(targetPeriod.rawPeriodo, true);
+              const subrowEl = document.getElementById(`subrow-${targetPeriod.rawPeriodo}`);
+              if (subrowEl) subrowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
           }
         }
@@ -594,7 +724,7 @@ export const tabConsultas = {
     registerChart(this.historyChart);
   },
 
-  selectPeriodo(periodoStr) {
+  selectPeriodo(periodoStr, showToastMsg = true) {
     if (!periodoStr || !this.periodosHistoricos) return;
 
     const target = this.periodosHistoricos.find(p => String(p.periodo) === String(periodoStr));
@@ -614,7 +744,9 @@ export const tabConsultas = {
       }));
 
     this.renderDeudasTable(deudas);
-    showToast(`Mostrando detalle de deudas para el período ${formatted}.`, 'info');
+    if (showToastMsg) {
+      showToast(`Mostrando detalle de deudas para el período ${formatted}.`, 'info');
+    }
   },
 
   getNombreSituacion(sit) {

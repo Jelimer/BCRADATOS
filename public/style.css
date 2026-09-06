@@ -1610,3 +1610,113 @@ body.dark-theme .pill-btn.active {
   border-color: rgba(0, 240, 255, 0.4);
   box-shadow: 0 8px 24px var(--theme-cripto-glow);
 }
+
+/* ==========================================================================
+   CONSULTAS FINANCIERAS - SELECT DE PERÍODOS Y ACORDEÓN HISTÓRICO
+   ========================================================================== */
+#deudorPeriodoSelect {
+  background-color: #1a1d2e !important;
+  color: #f8fafc !important;
+  color-scheme: dark !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  padding: 6px 14px !important;
+  border-radius: 6px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  outline: none;
+}
+
+#deudorPeriodoSelect option {
+  background-color: #1a1d2e !important;
+  color: #f8fafc !important;
+  padding: 8px 12px !important;
+  font-weight: 500 !important;
+}
+
+#deudorPeriodoSelect option:checked,
+#deudorPeriodoSelect option:hover {
+  background-color: #007aff !important;
+  color: #ffffff !important;
+}
+
+.btn-expand-periodo {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-main);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-right: 8px;
+  transition: all 0.2s ease;
+  font-size: 11px;
+}
+
+.btn-expand-periodo:hover {
+  background: rgba(191, 90, 242, 0.2);
+  border-color: #bf5af2;
+  color: #ffffff;
+}
+
+.btn-expand-periodo.expanded {
+  background: #bf5af2;
+  border-color: #bf5af2;
+  color: #ffffff;
+  transform: rotate(45deg);
+}
+
+.historico-row-main {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.historico-row-main:hover {
+  background: rgba(255, 255, 255, 0.035) !important;
+}
+
+.historico-subrow {
+  background: rgba(15, 23, 42, 0.6) !important;
+}
+
+.historico-subrow td {
+  padding: 0 15px 15px 15px !important;
+  border-top: none !important;
+}
+
+.historico-subcard {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.mini-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  margin-top: 8px;
+}
+
+.mini-data-table th {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mini-data-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.mini-data-table tr:last-child td {
+  border-bottom: none;
+}
