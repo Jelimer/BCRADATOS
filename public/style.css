@@ -1593,6 +1593,20 @@ body.dark-theme .pill-btn.active {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* ==========================================================================
+   COMPONENTES CRIPTOYA Y RENDIMIENTOS FINTECH
+   ========================================================================== */
+:root {
+  --theme-cripto: #00f0ff;
+  --theme-cripto-glow: rgba(0, 240, 255, 0.15);
+}
 
+#cardDolarCripto {
+  transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
 
-
+#cardDolarCripto:hover {
+  transform: translateY(-2px);
+  border-color: rgba(0, 240, 255, 0.4);
+  box-shadow: 0 8px 24px var(--theme-cripto-glow);
+}

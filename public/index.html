@@ -105,7 +105,7 @@
       <!-- Encabezado Superior -->
       <header class="top-bar">
         <div class="top-bar-left">
-          <button class="toggle-sidebar-btn" id="toggleSidebarBtn" aria-label="Abrir catálogo">
+          <button class="toggle-sidebar-btn" id="toggleSidebarBtn" aria-label="Abrir catálogo" aria-expanded="false">
             <i class="fa-solid fa-bars"></i>
           </button>
           <h2 class="section-title" id="selectedVariableNameTitle">Estadísticas Monetarias (BCRA)</h2>
@@ -531,6 +531,17 @@
                   <span class="kpi-subtext">Venta Minorista</span>
                 </div>
               </div>
+
+              <div class="kpi-card card-dolar-glow" id="cardDolarCripto">
+                <div class="kpi-icon-wrapper" style="background: rgba(0, 240, 255, 0.15); color: #00f0ff;">
+                  <i class="fa-solid fa-coins"></i>
+                </div>
+                <div class="kpi-info">
+                  <span class="kpi-label">Dólar Cripto (USDT)</span>
+                  <h4 class="kpi-value" id="dolarCriptoValue">-</h4>
+                  <span class="kpi-subtext" id="brechaCriptoValue">Brecha: -%</span>
+                </div>
+              </div>
             </div>
 
 
@@ -796,6 +807,9 @@
                   <button class="range-btn" id="btnShowPrestamos">
                     <i class="fa-solid fa-hand-holding-dollar"></i> Préstamos Personales
                   </button>
+                  <button class="range-btn" id="btnShowCuentasRemuneradas">
+                    <i class="fa-solid fa-mobile-screen-button"></i> Billeteras & Cuentas Remuneradas
+                  </button>
                 </div>
                 
                 <div class="search-box" style="max-width: 300px; width: 100%; margin-left: auto;">
@@ -881,6 +895,32 @@
                   </table>
                 </div>
               </div>
+
+              <!-- Vista Billeteras & Cuentas Remuneradas Fintech -->
+              <div class="comparador-subview hidden" id="subviewCuentasRemuneradas">
+                <div class="info-card-header" style="margin-bottom: 15px;">
+                  <i class="fa-solid fa-mobile-screen-button info-icon" style="color: #00f0ff;"></i>
+                  <h3>Rendimientos de Billeteras Virtuales y Cuentas Remuneradas (TNA / APY)</h3>
+                </div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px; font-size: 14px;">
+                  Comparador de tasas anuales estimadas (TNA / APY) ofrecidas por las principales fintechs y billeteras virtuales del país para saldos a la vista y fondos comunes de inversión Money Market.
+                </p>
+                <div class="table-wrapper">
+                  <table class="data-table" id="cuentasRemuneradasTable">
+                    <thead>
+                      <tr>
+                        <th scope="col">Entidad / Billetera</th>
+                        <th scope="col" class="text-right">TNA / APY (%)</th>
+                        <th scope="col" class="text-right">Rendimiento Mensual Estimado (%)</th>
+                        <th scope="col" class="text-right">Tope Bonificado / Instrumento</th>
+                      </tr>
+                    </thead>
+                    <tbody id="cuentasRemuneradasTableBody">
+                      <!-- Datos dinámicos -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -921,6 +961,11 @@
                       </button>
                     </div>
                     <span id="cuitErrorText" class="error-inline hidden" style="color: #ff453a; font-size: 12.5px; margin-top: 5px; display: block;">CUIT inválido. Debe contener 11 dígitos numéricos válidos.</span>
+                    <!-- Consultas Recientes -->
+                    <div id="deudoresRecentSearches" class="recent-searches-row hidden" style="margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                      <span style="font-size: 12px; color: var(--text-secondary);"><i class="fa-solid fa-clock-rotate-left"></i> Recientes:</span>
+                      <div id="deudoresRecentChips" style="display: flex; gap: 6px; flex-wrap: wrap;"></div>
+                    </div>
                   </div>
                 </div>
 
@@ -929,11 +974,26 @@
                   <p>Consultando base de datos del Banco Central...</p>
                 </div>
 
-                <div id="deudoresResultContainer" class="deudores-results-panel hidden" style="margin-top: 25px;">
-                  <div id="deudorSimulationAlert" class="hidden" style="margin-bottom: 15px; padding: 12px 16px; border-radius: 8px; background: rgba(255, 159, 10, 0.12); border: 1px solid #ff9f0a; color: #ff9f0a; font-size: 13px; display: flex; align-items: center; gap: 10px;">
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-                    <span><strong>Datos Simulados (Modo Contingencia):</strong> No se pudo obtener información en tiempo real del Banco Central (BCRA) para este CUIT. Se muestran datos ficticios con fines de demostración.</span>
+                <!-- Contenedor de Error / Mantenimiento del BCRA -->
+                <div id="deudoresErrorContainer" class="hidden" style="margin-top: 25px; padding: 20px 24px; border-radius: 10px; background: rgba(255, 159, 10, 0.08); border: 1px solid rgba(255, 159, 10, 0.3);">
+                  <div style="display: flex; gap: 14px; align-items: flex-start;">
+                    <i class="fa-solid fa-triangle-exclamation" style="color: #ff9f0a; font-size: 24px; margin-top: 2px;"></i>
+                    <div style="flex: 1;">
+                      <h4 id="deudorErrorTitle" style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 0 0 6px 0;">Servicio Oficial del BCRA en Mantenimiento</h4>
+                      <p id="deudorErrorDesc" style="font-size: 13.5px; color: var(--text-secondary); margin: 0 0 14px 0; line-height: 1.5;">El servicio oficial de la Central de Deudores del Banco Central se encuentra temporalmente en mantenimiento técnico.</p>
+                      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button type="button" id="btnReintentarDeudor" class="btn btn-outline" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer;">
+                          <i class="fa-solid fa-rotate-right"></i> Reintentar Consulta
+                        </button>
+                        <a href="https://www.bcra.gob.ar/BCRAyVos/Situacion_Crediticia.asp" target="_blank" rel="noopener noreferrer" class="btn btn-outline" style="font-size: 12.5px; padding: 6px 14px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                          <i class="fa-solid fa-arrow-up-right-from-square"></i> Abrir en Web Oficial BCRA
+                        </a>
+                      </div>
+                    </div>
                   </div>
+                </div>
+
+                <div id="deudoresResultContainer" class="deudores-results-panel hidden" style="margin-top: 25px;">
                   <div class="deudores-card-header" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
                     <div>
                       <h4 id="deudorNombre" class="deudor-title" style="font-size: 18px; font-weight: 700; margin: 0; color: var(--text-main);">-</h4>
@@ -964,10 +1024,19 @@
                     </div>
                   </div>
 
-                  <!-- Tabla de deudas consolidadas -->
+                  <!-- Tabla de deudas consolidadas con selector de período -->
                   <div style="margin-top: 25px;">
-                    <div class="section-title-sm" style="font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 10px;"><i class="fa-solid fa-building-columns"></i> Detalle de Deudas por Entidad Bancaria</div>
-                    <div class="table-wrapper" style="margin-top: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                      <div class="section-title-sm" style="font-size: 14px; font-weight: 600; color: var(--text-main); margin: 0;">
+                        <i class="fa-solid fa-building-columns"></i> Detalle de Deudas por Entidad Bancaria
+                      </div>
+                      <div id="deudorPeriodoSelectWrapper" class="hidden" style="display: flex; align-items: center; gap: 8px;">
+                        <label for="deudorPeriodoSelect" style="font-size: 12.5px; color: var(--text-secondary); margin: 0;">Período:</label>
+                        <select id="deudorPeriodoSelect" style="background: var(--bg-card); color: var(--text-main); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 5px 10px; font-size: 13px; cursor: pointer;">
+                        </select>
+                      </div>
+                    </div>
+                    <div class="table-wrapper">
                       <table class="data-table" id="deudasTable">
                         <thead>
                           <tr>
@@ -981,6 +1050,50 @@
                           <!-- Datos dinámicos -->
                         </tbody>
                       </table>
+                    </div>
+                  </div>
+
+                  <!-- Sección Historial Crediticio 24 Meses -->
+                  <div id="deudoresHistoricoContainer" class="main-card chart-container-card hidden" style="margin-top: 25px; padding: 20px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                      <div>
+                        <h4 style="font-size: 15px; font-weight: 700; margin: 0; color: var(--text-main);">
+                          <i class="fa-solid fa-chart-line" style="color: #bf5af2; margin-right: 6px;"></i> Evolución Crediticia Histórica (Últimos 24 Meses)
+                        </h4>
+                        <p style="font-size: 12.5px; color: var(--text-secondary); margin: 4px 0 0 0;">
+                          Evolución mensual de la deuda y calificación de riesgo registrada en la Central de Deudores del BCRA.
+                        </p>
+                      </div>
+                      <div style="display: flex; gap: 8px;">
+                        <button type="button" id="btnToggleHistoricoTable" class="btn btn-secondary btn-sm" style="font-size: 12px; padding: 6px 14px; cursor: pointer;">
+                          <i class="fa-solid fa-table-list"></i> Ver Tabla Mensual
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Gráfico de Evolución Histórica -->
+                    <div style="position: relative; height: 260px; width: 100%;">
+                      <canvas id="deudorHistoryChart"></canvas>
+                    </div>
+
+                    <!-- Tabla Histórica Resumen (desplegable) -->
+                    <div id="deudorHistoricoTableWrapper" class="hidden" style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 15px;">
+                      <div class="table-wrapper">
+                        <table class="data-table" id="deudorHistoricoTable">
+                          <thead>
+                            <tr>
+                              <th scope="col">Período</th>
+                              <th scope="col" class="text-right">Deuda Consolidada</th>
+                              <th scope="col" class="text-center">Peor Situación</th>
+                              <th scope="col" class="text-center">Entidades con Deuda</th>
+                              <th scope="col" class="text-center">Acción</th>
+                            </tr>
+                          </thead>
+                          <tbody id="deudorHistoricoTableBody">
+                            <!-- Filas dinámicas -->
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
 
@@ -1040,6 +1153,20 @@
                   <p>Verificando estado en el registro del Banco Central...</p>
                 </div>
 
+                <!-- Contenedor de Error para Cheques -->
+                <div id="chequesErrorContainer" class="hidden" style="margin-top: 25px; padding: 20px 24px; border-radius: 10px; background: rgba(255, 69, 58, 0.08); border: 1px solid rgba(255, 69, 58, 0.3);">
+                  <div style="display: flex; gap: 14px; align-items: flex-start;">
+                    <i class="fa-solid fa-circle-exclamation" style="color: #ff453a; font-size: 24px; margin-top: 2px;"></i>
+                    <div style="flex: 1;">
+                      <h4 id="chequeErrorTitle" style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 0 0 6px 0;">No fue posible verificar el cheque</h4>
+                      <p id="chequeErrorDesc" style="font-size: 13.5px; color: var(--text-secondary); margin: 0 0 14px 0; line-height: 1.5;">Error de conexión con el servicio del Banco Central.</p>
+                      <button type="button" id="btnReintentarCheque" class="btn btn-outline" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer;">
+                        <i class="fa-solid fa-rotate-right"></i> Reintentar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 <div id="chequesResultContainer" class="cheques-results-panel hidden" style="margin-top: 25px;">
                   <div class="cheques-ticket" id="chequeTicketBg" style="background: rgba(48, 209, 88, 0.08); border: 2px dashed #30d158; padding: 25px; border-radius: 12px; position: relative;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -1074,6 +1201,6 @@
     <span id="toastMessage">Mensaje del sistema</span>
   </div>
 
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
