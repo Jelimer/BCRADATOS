@@ -252,4 +252,115 @@ describe('Frontend ESM Architecture & Static Integrity Suite', () => {
       assert.ok(fs.existsSync(modPath), `El módulo ${mod} debe existir en public/js/modules/`);
     }
   });
+
+  // ============================================================================
+  // 7. IDEMPOTENCIA DE INICIALIZACIÓN EN TABBCRA.JS (M2)
+  // ============================================================================
+  it('7. tabBcra.js debe implementar cláusula de guarda de idempotencia en init()', () => {
+    const tabBcraPath = path.join(MODULES_DIR, 'tabBcra.js');
+    assert.ok(fs.existsSync(tabBcraPath), 'tabBcra.js debe existir');
+    const content = fs.readFileSync(tabBcraPath, 'utf8');
+
+    // Comprobar presencia de guarda if (this.initialized) return; en init()
+    const initMatch = /init\s*\(\)\s*\{([^}]+)\}/.exec(content);
+    assert.ok(initMatch, 'tabBcra.js debe tener un método init()');
+    assert.match(
+      initMatch[1],
+      /if\s*\(\s*this\.initialized\s*\)\s*return\s*;?/,
+      'tabBcra.init() debe comenzar con la cláusula de guarda "if (this.initialized) return;"'
+    );
+  });
+
+  // ============================================================================
+  // 8. CICLO DE VIDA IN-PLACE DE CHART.JS Y SOPORTE DE TEMAS EN TABBYMA.JS (M2)
+  // ============================================================================
+  it('8. tabByma.js debe importar registerChart/unregisterChart, actualizar in-place y soportar temas adaptativos', () => {
+    const tabBymaPath = path.join(MODULES_DIR, 'tabByma.js');
+    assert.ok(fs.existsSync(tabBymaPath), 'tabByma.js debe existir');
+    const content = fs.readFileSync(tabBymaPath, 'utf8');
+
+    // Importación de registerChart y unregisterChart
+    assert.match(
+      content,
+      /import\s+{[^}]*registerChart[^}]*}\s+from\s+['"]\.\/charts\.js['"]/,
+      'tabByma.js debe importar registerChart desde ./charts.js'
+    );
+    assert.match(
+      content,
+      /import\s+{[^}]*unregisterChart[^}]*}\s+from\s+['"]\.\/charts\.js['"]/,
+      'tabByma.js debe importar unregisterChart desde ./charts.js'
+    );
+
+    // Actualización in-place sin parpadeo de canvas
+    assert.match(
+      content,
+      /appState\.byma\.chart\.update\(['"]active['"]\)/,
+      'tabByma.js debe reutilizar la instancia existente llamando a appState.byma.chart.update("active")'
+    );
+
+    // Registro en activeCharts
+    assert.match(
+      content,
+      /registerChart\(appState\.byma\.chart\)/,
+      'tabByma.js debe registrar la instancia creada llamando a registerChart(appState.byma.chart)'
+    );
+
+    // Detección de tema oscuro/claro
+    assert.match(
+      content,
+      /dark-theme/,
+      'tabByma.js debe consultar document.body.classList.contains("dark-theme") para estilos adaptativos'
+    );
+  });
+
+  // ============================================================================
+  // 9. LÍMITE DE CAPACIDAD (MAX_ENTRIES), PODA Y DESALOJO LRU EN CLIENTCACHE (M2)
+  // ============================================================================
+  it('9. clientCache en state.js debe implementar límite de capacidad maxEntries, poda preventiva y desalojo LRU', async () => {
+    const stateFileUrl = `file://${path.resolve(MODULES_DIR, 'state.js').replace(/\\/g, '/')}`;
+    const { clientCache } = await import(stateFileUrl);
+
+    assert.ok(clientCache, 'clientCache debe exportarse en state.js');
+    assert.equal(typeof clientCache.maxEntries, 'number', 'maxEntries debe ser numérico');
+    assert.ok(clientCache.maxEntries >= 50, 'maxEntries debe tener un umbral razonable');
+    assert.equal(typeof clientCache.prune, 'function', 'clientCache debe implementar el método prune()');
+
+    // Limpiar para test aislado
+    clientCache.clear();
+    const originalMax = clientCache.maxEntries;
+
+    try {
+      // Configurar límite pequeño de prueba: 4 entradas
+      clientCache.maxEntries = 4;
+
+      // 1. Inserción dentro del límite
+      clientCache.set('k1', 'val1');
+      clientCache.set('k2', 'val2');
+      clientCache.set('k3', 'val3');
+      clientCache.set('k4', 'val4');
+      assert.equal(clientCache.size(), 4, 'Debe almacenar 4 entradas');
+
+      // 2. Acceder a k1 para marcarla como recientemente usada (LRU)
+      const v1 = clientCache.get('k1');
+      assert.equal(v1, 'val1');
+
+      // 3. Insertar k5: debe desalojar la más antigua no usada (k2, ya que k1 fue accedida)
+      clientCache.set('k5', 'val5');
+      assert.equal(clientCache.size(), 4, 'No debe superar maxEntries');
+      assert.equal(clientCache.get('k2'), null, 'k2 debió ser desalojada');
+      assert.equal(clientCache.get('k1'), 'val1', 'k1 debe conservarse por acceso reciente LRU');
+      assert.equal(clientCache.get('k5'), 'val5', 'k5 debe estar presente');
+
+      // 4. Poda preventiva de entradas expiradas
+      clientCache.set('k_exp', 'expirado', -1000); // Ya expirada
+      assert.equal(clientCache.get('k_exp'), null, 'Entrada expirada no debe retornarse');
+
+      clientCache.set('k_exp2', 'expirado2', -1000);
+      const purged = clientCache.prune();
+      assert.ok(purged >= 1, 'prune() debe eliminar al menos una entrada expirada');
+    } finally {
+      clientCache.maxEntries = originalMax;
+      clientCache.clear();
+    }
+  });
 });

@@ -47,8 +47,8 @@ El proyecto es una plataforma web integral full-stack de alto rendimiento compue
 
 3. **Suite de Pruebas Automatizadas (`npm test`):**
    - Ejecución nativa con el motor `node:test` y `node:assert/strict` de Node.js v22 (sin dependencias frágiles externas).
-   - Cobertura ampliada a 184 tests en 65 suites de pruebas con 100% de éxito (Exit Code 0) y cero regresiones.
-   - Abarca verificación de salud y rutas base, políticas de caché LRU, contratos del BCRA, proxies externos (INDEC, BYMA, DolarApi, ArgentinaDatos), nuevos endpoints CriptoYa y Finanzas, esquemas en `schemaValidator.js`, contingencia y fallbacks ante caídas, análisis estático ESM sin navegador, detección de ciclos circulares DFS en módulos frontend, combinaciones cross-feature y pruebas adversariales de estrés.
+   - Cobertura ampliada a 222 tests en 76 suites de pruebas con 100% de éxito (Exit Code 0) y cero regresiones.
+   - Abarca verificación de salud y rutas base, políticas de caché LRU O(1), contratos del BCRA, proxies externos (INDEC, BYMA, DolarApi, ArgentinaDatos), nuevos endpoints CriptoYa y Finanzas, esquemas en `schemaValidator.js`, contingencia y fallbacks ante caídas, snapshots persistentes 24/7, análisis estático ESM sin navegador, detección de ciclos circulares DFS en módulos frontend, pruebas de compresión HTTP (gzip, deflate, bypass), pruebas unitarias puras de `CacheService`, combinaciones cross-feature y pruebas adversariales de estrés.
 
 ---
 
@@ -86,6 +86,16 @@ El proyecto es una plataforma web integral full-stack de alto rendimiento compue
 | 28 | Frontend: Integración Visual CriptoYa | Tarjetas de Dólar Cripto en Mercado Cambiario, tabla de Billeteras Remuneradas en Comparador y cotizaciones bancarias 100% en español | M2_FRONTEND | **DONE** |
 | 29 | Testing: Suites Ampliadas y Verificación E2E | Implementación de `tests/criptoya.test.js`, `tests/frontend-esm.test.js`, `tests/criptoya-resilience.test.js` y tests empíricos alcanzando 184 tests exitosos (Exit Code 0) | M3_TESTS | **DONE** |
 | 30 | Documentación: Actualización Técnica Integral | Actualización exhaustiva de `PROJECT.md` y `AUDIT_REPORT.md` reflejando las nuevas fuentes, arquitectura ESM y compuertas aprobadas | M4_DOCS | **DONE** |
+| 31 | Backend: Desactivación de proxy para loopback local | Detección determinística de loopback (`127.0.0.1`, `localhost`, `::1`) en `httpClient.js` con `{ proxy: false }` para evitar errores 400 por `HTTP_PROXY` | M1_BACKEND_RESILIENCE | **DONE** |
+| 32 | Backend: Snapshot de contingencia y timeout INDEC | Resiliencia 24/7 con `data/indec_series_snapshot.json` (39 períodos, 10 series) y timeout preventivo de 5s en `server.js` | M1_BACKEND_RESILIENCE | **DONE** |
+| 33 | Backend: Tolerancia ante HTTP 502 del BCRA en Deudores | Normalización controlada a HTTP 200 limpio sin deuda o propagación estructurada ante fallas 502/429 upstream | M1_BACKEND_RESILIENCE | **DONE** |
+| 34 | Frontend: Idempotencia en tabBcra.js | Cláusula de guarda `if (this.initialized) return;` en `tabBcra.init()` evitando duplicación de event listeners | M2_FRONTEND_PERF | **DONE** |
+| 35 | Frontend: Ciclo de vida in-place y temas en tabByma.js | Actualización in-place con `chart.update('active')`, registro en `activeCharts` y soporte reactivo de temas claro/oscuro | M2_FRONTEND_PERF | **DONE** |
+| 36 | Frontend: Poda preventiva y límite LRU en clientCache | Límite de 200 entradas (`maxEntries`), reordenamiento LRU en `.get()` y poda preventiva en `state.js` | M2_FRONTEND_PERF | **DONE** |
+| 37 | Backend: Sincronización LRU y métricas en cacheService | `getEntry()` incrementa hits/misses y reposiciona claves en el Map para desalojo estricto LRU $O(1)$ | M3_CACHE_COMPRESSION | **DONE** |
+| 38 | Backend: Presets TTL en cacheService | Incorporación de presets oficiales `BANCOS: 60`, `INDICADORES: 3600`, `FINANZAS: 1800` en `this.TTL` | M3_CACHE_COMPRESSION | **DONE** |
+| 39 | Testing: Suites de compresión HTTP y unitarios de caché | `tests/compression.test.js` (gzip >1KB, sin compresión <1KB, bypass `x-no-compression`, deflate) y `tests/cacheService.unit.test.js` (LRU 2.000, purga, hitRate) | M3_CACHE_COMPRESSION | **DONE** |
+| 40 | Verificación E2E y Certificación Final v2.6.0-PROD | Certificación de 222 tests en 76 suites (Exit Code 0), actualización de AUDIT_REPORT.md y PROJECT.md | M4_E2E_VERIFICATION_REPORT | **DONE** |
 
 ---
 
@@ -101,6 +111,10 @@ El proyecto es una plataforma web integral full-stack de alto rendimiento compue
 | **M2_FRONTEND** | Frontend ESM Modularization & UI | Desacoplar `public/app.js` en 12 módulos ESM en `public/js/modules/`, cargar `<script type="module">`, integrar vistas de cripto/rendimientos | M1_BACKEND | **DONE** |
 | **M3_TESTS** | Test Suite Expansion & E2E Verification | Implementar suites de pruebas de CriptoYa, resiliencia y análisis estático ESM, validando 184 tests en `npm test` con Exit Code 0 | M1_BACKEND, M2_FRONTEND | **DONE** |
 | **M4_DOCS** | Technical Audit Report & Release Integration | Actualización integral de `AUDIT_REPORT.md` y `PROJECT.md`, certificación de contratos y reporte final | M3_TESTS | **DONE** |
+| **M1_BACKEND_RESILIENCE** | Backend Resilience & APIs (v2.6) | httpClient loopback proxy fix, INDEC timeout 5s con snapshot persistente, tolerancia 502 del BCRA | none | **DONE** |
+| **M2_FRONTEND_PERF** | Frontend Performance & Lifecycle (v2.6) | Idempotencia en tabBcra, ciclo in-place en Chart.js de BYMA con sincronización de temas, poda LRU en clientCache (200) | none | **DONE** |
+| **M3_CACHE_COMPRESSION** | Cache LRU & HTTP Compression (v2.6) | Sincronización de hits/misses y LRU en cacheService.getEntry, TTLs BANCOS/INDICADORES/FINANZAS, suites de compresión y caché unitaria | M1_BACKEND_RESILIENCE | **DONE** |
+| **M4_E2E_VERIFICATION_REPORT** | E2E Verification & Audit Release (v2.6.0-PROD) | Certificación de 222 tests en 76 suites (100% pass, Exit Code 0), actualización exhaustiva de AUDIT_REPORT.md y PROJECT.md | M1_BACKEND_RESILIENCE, M2_FRONTEND_PERF, M3_CACHE_COMPRESSION | **DONE** |
 
 ---
 
@@ -110,9 +124,12 @@ El proyecto es una plataforma web integral full-stack de alto rendimiento compue
 bcra-monetarias/
 ├── server.js                      # Servidor Express, proxies (BCRA, INDEC, BYMA, DolarApi, CriptoYa, Finanzas)
 ├── package.json                   # Dependencias y script "test": "node --test tests/**/*.test.js"
+├── data/
+│   ├── byma_bonds_snapshot.json   # Snapshot de contingencia 24/7 para bonos BYMA fuera de horario bursátil
+│   └── indec_series_snapshot.json # Snapshot persistente de 39 períodos cronológicos para 10 series INDEC
 ├── services/
-│   ├── cacheService.js            # Gestor de caché LRU en memoria con TTL granular y snapshots de fallback
-│   ├── httpClient.js              # Cliente HTTP con timeouts, reintentos con backoff y agente SSL dedicado
+│   ├── cacheService.js            # Gestor de caché LRU en memoria con TTL granular, sincronización O(1) y snapshots
+│   ├── httpClient.js              # Cliente HTTP con timeouts, reintentos con backoff, bypass proxy loopback y agente SSL
 │   └── schemaValidator.js         # Validación, sanitización y normalización de contratos financieros
 ├── middleware/
 │   ├── cacheMiddleware.js         # Middleware de caché Express transparente con cabeceras X-Cache
@@ -124,16 +141,16 @@ bcra-monetarias/
 │   └── js/
 │       └── modules/
 │           ├── api.js             # Servicios de llamada HTTP a endpoints proxy con control de timeouts
-│           ├── state.js           # Almacén de estado reactivo global (appState) y clientCache Map
-│           ├── charts.js          # Fábrica Chart.js, actualización reactiva in-place y plugins de diseño
+│           ├── state.js           # Almacén de estado reactivo global (appState) y clientCache Map con poda LRU (200)
+│           ├── charts.js          # Fábrica Chart.js, actualización reactiva in-place, activeCharts y plugins de diseño
 │           ├── utils.js           # Formateadores, debounce (150ms), validador CUIT módulo 11, Blob downloader
-│           ├── ui.js              # Notificaciones toast, spinners de carga y alternancia de tema
-│           ├── tabBcra.js         # Controlador de Tab BCRA (catálogo, series cronológicas, KPIs)
+│           ├── ui.js              # Notificaciones toast, spinners de carga y alternancia de tema claro/oscuro
+│           ├── tabBcra.js         # Controlador de Tab BCRA (guarda de inicialización idempotente, catálogo, KPIs)
 │           ├── tabIndec.js        # Controlador de Tab INDEC (inflación, actividad, base 100)
 │           ├── tabDolares.js      # Controlador de Tab Dólares y Mercado Cambiario (oficial, blue, mep, ccl, bancos)
-│           ├── tabByma.js         # Controlador de Tab BYMA (panel de bonos, fichas técnicas, cash flow)
+│           ├── tabByma.js         # Controlador de Tab BYMA (actualización in-place de canvas, temas, flujos y fallback)
 │           ├── tabComparador.js   # Controlador de Tab Comparador (plazos fijos BCRA y rendimientos fintech)
-│           ├── tabConsultas.js    # Controlador de Tab Consultas (Central de Deudores y validador de Cheques)
+│           ├── tabConsultas.js    # Controlador de Tab Consultas (Central de Deudores resiliente 502 y validador de Cheques)
 │           └── tabCripto.js       # Submódulo para componentes CriptoYa, arbitraje y billeteras remuneradas
 ├── tests/
 │   ├── helpers/                   # Setup de servidor efímero y fixtures de prueba
@@ -147,13 +164,15 @@ bcra-monetarias/
 │   ├── tier5-e2e-adversarial.test.js # Pruebas adversariales Tier 5 completas
 │   ├── bcra-normalization.test.js # Validación matemática de CUITs y normalización 404
 │   ├── server.test.js             # Rutas de salud, estadísticas de caché y cabeceras
-│   ├── httpClient.test.js         # Timeouts, backoff exponencial y aislamiento SSL
+│   ├── httpClient.test.js         # Timeouts, backoff exponencial, bypass proxy local y aislamiento SSL
 │   ├── resilience.test.js         # Resiliencia general ante caídas de proveedores upstream
 │   ├── criptoya.test.js           # Tests de contratos, esquemas, bancos y arbitraje CriptoYa
 │   ├── criptoya-resilience.test.js # Tests de contingencia, fallbacks por snapshot y timeout en CriptoYa
-│   ├── frontend-esm.test.js       # Verificación estática de sintaxis ESM y detección de ciclos DFS
-│   └── challenger_empirical.test.js # Batería de validación empírica y stress testing
-├── AUDIT_REPORT.md                # Reporte técnico integral de auditoría, optimización y certificación
+│   ├── frontend-esm.test.js       # Verificación estática de sintaxis ESM, detección de ciclos DFS, idempotencia y poda
+│   ├── challenger_empirical.test.js # Batería de validación empírica y stress testing
+│   ├── compression.test.js        # Validación de compresión HTTP Gzip, Deflate y bypass x-no-compression
+│   └── cacheService.unit.test.js  # Pruebas unitarias puras de CacheService (LRU O(1), TTL, purga, hitRate)
+├── AUDIT_REPORT.md                # Reporte técnico integral de auditoría, optimización y certificación v2.6.0-PROD
 └── PROJECT.md                     # Documento maestro de arquitectura y especificación
 ```
 

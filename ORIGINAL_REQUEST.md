@@ -70,3 +70,40 @@ Actualizar y extender la suite de pruebas de `npm test` con el runner nativo de 
 - [ ] El comando `npm test` ejecuta con éxito la suite completa ampliada, logrando un 100% de pruebas aprobadas sin fallos (Exit Code 0).
 - [ ] Se genera o actualiza la documentación técnica en el repositorio detallando las nuevas APIs incorporadas, la nueva estructura modular y las mejoras implementadas.
 
+
+
+## Follow-up — 2026-10-09T17:59:24Z
+
+Auditoría integral 360°, optimización de rendimiento y verificación profunda de resiliencia y estabilidad del proyecto bcra-monetarias (backend Express, frontend modular SPA y proxies de APIs financieras argentinas).
+
+Working directory: C:\Users\jelim\.gemini\antigravity\scratch\bcra-monetarias
+Integrity mode: development
+
+## Requirements
+
+### R1. Auditoría, resiliencia y contratos de APIs financieras en backend
+Verificar y auditar de forma integral todos los servicios proxy integrados en el backend (BCRA Estadísticas Monetarias v4.0, Cambiarias v1.0, Transparencia, Central de Deudores, Cheques; INDEC Series de Tiempo; BYMA Bonos e Históricos con fallback persistente 24/7; DolarApi; ArgentinaDatos; y CriptoYa). Identificar posibles cuellos de botella, timeouts innecesarios o inconsistencias en manejo de errores, asegurando que ante fallas temporales o fuera de horario bursátil el sistema mantenga alta disponibilidad sin excepciones no controladas.
+
+### R2. Optimización de rendimiento, tiempos de respuesta y renderizado en frontend
+Analizar el código modular del cliente (`public/js/modules/`) y sus interacciones con Chart.js y el DOM. Optimizar los ciclos de renderizado de gráficos, la destrucción y reutilización de instancias de canvas, la paginación y ordenamiento de tablas extensas, garantizando una experiencia fluida, libre de memory leaks y con cero advertencias o excepciones en la consola del navegador.
+
+### R3. Eficiencia en gestión de caché, compresión y consumo de recursos
+Revisar las políticas de TTL y estrategias de almacenamiento en caché en memoria (`services/cacheService.js` y `middleware/cacheMiddleware.js`), optimizando el hit rate para series históricas pesadas, asegurando encabezados `X-Cache` consistentes y verificando que la compresión gzip/deflate opere eficientemente en payloads grandes.
+
+### R4. Verificación programática, cobertura de tests y reporte de auditoría
+Ejecutar, consolidar y validar la suite completa de pruebas automatizadas (`npm test`), asegurando que todos los tests pasen exitosamente con 0 fallos. Elaborar un reporte técnico actualizado documentando los hallazgos identificados, las optimizaciones aplicadas y los indicadores de rendimiento resultantes.
+
+## Acceptance Criteria
+
+### Estabilidad y Contratos de APIs
+- [ ] Todos los endpoints proxy (`/api/monetarias`, `/api/monetarias/:id`, `/api/byma/...`, `/api/indec/series`, `/api/bcra-cambiarias/...`, `/api/bcra-deudores/...`, `/api/bcra-cheques/...`, `/api/mercado-dolarapi/...`, `/api/argentinadatos/...`, `/api/byma/indicadores`) responden con códigos HTTP controlados (200 OK en operación normal o fallbacks estructurados) y esquemas válidos.
+- [ ] La resiliencia 24/7 de BYMA y Central de Deudores entrega datos coherentes y nunca deja pantallas en blanco o tablas vacías fuera de horario bancario/bursátil.
+
+### Rendimiento y Calidad de Frontend
+- [ ] Los 6 módulos visuales (BCRA, INDEC, Dólares y Brechas, Bonos BYMA, Comparador Bancario y Consultas de Deudores/Cheques) cargan sin errores en consola y mantienen la interfaz 100% en español.
+- [ ] La navegación e interacción con gráficos Chart.js (cambio de rangos temporales, métricas y tooltips) responde con fluidez sin retardo perceptible ni fugas de memoria.
+
+### Eficiencia y Verificación
+- [ ] El servidor Express inicia en el puerto configurado de manera estable, registrando estadísticas de caché saludables con hit rate medible y tiempos de respuesta reducidos para consultas recurrentes.
+- [ ] El comando `npm test` se ejecuta sin errores (Exit Code 0), aprobando el 100% de los casos de prueba de forma reproducible.
+- [ ] Se incluye o actualiza un informe técnico detallando las verificaciones realizadas, optimizaciones implementadas y el estado operativo final del sistema.

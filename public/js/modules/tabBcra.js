@@ -18,6 +18,7 @@ export const tabBcra = {
   dom: {},
 
   init() {
+    if (this.initialized) return;
     this.cacheDomElements();
     this.setupEventListeners();
     this.fetchCatalog();

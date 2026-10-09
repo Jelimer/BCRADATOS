@@ -11,6 +11,7 @@ import { fetchBymaPanel, fetchBymaBondInfo, fetchBymaHistorical, fetchBymaIndica
 import { clientCache, appState } from './state.js';
 import { formatValue, formatValueCompact, formatDate, debounce } from './utils.js';
 import { showToast } from './ui.js';
+import { registerChart, unregisterChart } from './charts.js';
 
 export const tabByma = {
   initialized: false,
@@ -418,6 +419,10 @@ export const tabByma = {
     }
 
     if (!historyData || !Array.isArray(historyData.c) || historyData.c.length === 0) {
+      if (appState.byma.chart) {
+        unregisterChart(appState.byma.chart);
+        appState.byma.chart = null;
+      }
       return;
     }
 
@@ -442,15 +447,37 @@ export const tabByma = {
     const isUsd = bond.denominationCcy === 'USD' || bond.symbol.endsWith('D');
     const lineColor = isUsd ? '#0a84ff' : '#30d158';
 
-    if (appState.byma.chart) {
-      appState.byma.chart.destroy();
-      appState.byma.chart = null;
-    }
-
     // Gradiente de fondo
     const gradient = ctx.createLinearGradient(0, 0, 0, 260);
     gradient.addColorStop(0, isUsd ? 'rgba(10, 132, 255, 0.28)' : 'rgba(48, 209, 88, 0.28)');
     gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+    // Actualización in-place si la instancia de Chart.js ya existe (cero parpadeo de canvas)
+    if (appState.byma.chart) {
+      appState.byma.chart.data.labels = labels;
+      appState.byma.chart.data.datasets[0].data = cSlice;
+      appState.byma.chart.data.datasets[0].label = `Precio Cierre (${isUsd ? 'USD' : 'ARS'})`;
+      appState.byma.chart.data.datasets[0].borderColor = lineColor;
+      appState.byma.chart.data.datasets[0].backgroundColor = gradient;
+      appState.byma.chart.data.datasets[0].pointBackgroundColor = lineColor;
+      appState.byma.chart.data.datasets[0].pointRadius = cSlice.length > 60 ? 0 : 2.5;
+      if (appState.byma.chart.options?.scales?.y?.ticks) {
+        appState.byma.chart.options.scales.y.ticks.callback = (v) => isUsd ? `US$ ${v}` : `$ ${formatValueCompact(v)}`;
+      }
+      if (appState.byma.chart.options?.plugins?.tooltip?.callbacks) {
+        appState.byma.chart.options.plugins.tooltip.callbacks.label = (item) => {
+          const val = item.raw;
+          const formatted = isUsd ? `US$ ${val.toFixed(2)}` : `$ ${formatValue(val)}`;
+          return ` Cotización: ${formatted}`;
+        };
+      }
+      appState.byma.chart.update('active');
+      return;
+    }
+
+    const isDark = document.body.classList.contains('dark-theme');
+    const textColor = isDark ? '#94a3b8' : '#64748b';
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
 
     appState.byma.chart = new Chart(ctx, {
       type: 'line',
@@ -479,10 +506,10 @@ export const tabByma = {
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: 'rgba(20, 24, 33, 0.95)',
-            titleColor: '#fff',
-            bodyColor: '#e0e0e0',
-            borderColor: 'rgba(255, 255, 255, 0.1)',
+            backgroundColor: isDark ? '#0f172a' : '#ffffff',
+            titleColor: isDark ? '#f8fafc' : '#0f172a',
+            bodyColor: isDark ? '#94a3b8' : '#64748b',
+            borderColor: gridColor,
             borderWidth: 1,
             callbacks: {
               label: (item) => {
@@ -496,22 +523,22 @@ export const tabByma = {
         scales: {
           x: {
             grid: {
-              color: 'rgba(255, 255, 255, 0.05)',
+              color: gridColor,
               drawBorder: false
             },
             ticks: {
-              color: 'rgba(255, 255, 255, 0.5)',
+              color: textColor,
               font: { size: 11 },
               maxTicksLimit: 8
             }
           },
           y: {
             grid: {
-              color: 'rgba(255, 255, 255, 0.05)',
+              color: gridColor,
               drawBorder: false
             },
             ticks: {
-              color: 'rgba(255, 255, 255, 0.5)',
+              color: textColor,
               font: { size: 11 },
               callback: (v) => isUsd ? `US$ ${v}` : `$ ${formatValueCompact(v)}`
             }
@@ -519,6 +546,8 @@ export const tabByma = {
         }
       }
     });
+
+    registerChart(appState.byma.chart);
   },
 
   renderCashFlow(symbol) {

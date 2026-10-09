@@ -34,7 +34,10 @@ class CacheService {
       TRANSPARENCY: 1800,      // 30 minutos (/api/bcra-transparencia/*)
       LIVE_MARKET: 30,         // 30 segundos (/api/mercado-dolarapi/*, /api/mercado/live/:tipo, /api/byma/*, /api/bcra-cambiarias/Cotizaciones)
       IDENTIFIER_QUERY: 300,   // 5 minutos (/api/bcra-deudores/*, /api/bcra-cheques/*)
-      FALLBACK_PERSISTENT: 604800 // 7 días (para paneles de contingencia fuera de horario)
+      FALLBACK_PERSISTENT: 604800, // 7 días (para paneles de contingencia fuera de horario)
+      BANCOS: 60,              // 60 segundos (/api/criptoya/bancos)
+      INDICADORES: 3600,       // 1 hora (/api/criptoya/indicadores)
+      FINANZAS: 1800           // 30 minutos (/api/finanzas/rendimientos)
     };
 
     // Iniciar timer de limpieza periódica de entradas expiradas
@@ -135,18 +138,33 @@ class CacheService {
 
   /**
    * Obtiene información detallada de una entrada en caché (TTL restante, fecha creación).
+   * Actualiza el orden de uso LRU e incrementa las métricas de aciertos/fallos.
    * @param {string} key 
    * @returns {{ value: any, ttlRemaining: number, createdAt: number, hits: number } | null}
    */
   getEntry(key) {
-    if (!this.store.has(key)) return null;
+    if (!this.store.has(key)) {
+      this.stats.misses++;
+      return null;
+    }
+
     const entry = this.store.get(key);
     const now = Date.now();
+
     if (entry.expiresAt <= now) {
       this.store.delete(key);
+      this.stats.misses++;
       this.stats.expirations++;
       return null;
     }
+
+    entry.hits++;
+    this.stats.hits++;
+
+    // Mover al final del Map para comportamiento LRU (actualizar orden de uso)
+    this.store.delete(key);
+    this.store.set(key, entry);
+
     return {
       value: entry.value,
       ttlRemaining: Math.max(0, Math.ceil((entry.expiresAt - now) / 1000)),

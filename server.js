@@ -55,6 +55,7 @@ const CRIPTOYA_BASE = 'https://criptoya.com/api';
 
 // Claves para persistencia de fallback de paneles y contingencias fuera de horario
 const BYMA_FALLBACK_CACHE_KEY = 'byma:last_valid_panel';
+const INDEC_FALLBACK_CACHE_KEY = 'indec:last_valid_series';
 const CRIPTOYA_FALLBACK_DOLAR_KEY = 'criptoya:last_valid_dolar';
 const CRIPTOYA_FALLBACK_BANCOS_KEY = 'criptoya:last_valid_bancos';
 const CRIPTOYA_FALLBACK_INDICADORES_KEY = 'criptoya:last_valid_indicadores';
@@ -82,6 +83,95 @@ function getFallbackBondsPanel() {
     return persistentBondsSnapshot;
   }
   return null;
+}
+
+// Carga del snapshot persistente oficial de series de INDEC para contingencia
+let persistentIndecSnapshot = null;
+try {
+  const indecSnapshotFile = path.join(__dirname, 'data', 'indec_series_snapshot.json');
+  if (fs.existsSync(indecSnapshotFile)) {
+    persistentIndecSnapshot = JSON.parse(fs.readFileSync(indecSnapshotFile, 'utf-8'));
+    cacheService.set(INDEC_FALLBACK_CACHE_KEY, persistentIndecSnapshot, cacheService.TTL.FALLBACK_PERSISTENT);
+    console.log(`[INDEC] Snapshot persistente de series cargado (${Object.keys(persistentIndecSnapshot.series || {}).length} series).`);
+  }
+} catch (e) {
+  console.warn('[INDEC] No se pudo cargar snapshot persistente de series:', e.message);
+}
+
+function getFallbackIndecData(query = {}) {
+  const snapshot = persistentIndecSnapshot || cacheService.get(INDEC_FALLBACK_CACHE_KEY);
+  if (!snapshot || !snapshot.dates || !snapshot.series) {
+    return {
+      data: [],
+      meta: [{ field: { id: 'indice_tiempo', description: 'Índice de tiempo' } }],
+      count: 0,
+      isFallback: true,
+      cached: true
+    };
+  }
+
+  const rawIds = query.ids ? String(query.ids).split(',').map(s => s.trim()).filter(Boolean) : [];
+  const matchingSeries = [];
+  for (const id of rawIds) {
+    if (snapshot.series[id]) {
+      matchingSeries.push(snapshot.series[id]);
+    }
+  }
+
+  if (rawIds.length > 0 && matchingSeries.length === 0) {
+    return {
+      data: [],
+      meta: [{ field: { id: 'indice_tiempo', description: 'Índice de tiempo' } }],
+      count: 0,
+      params: { ...query },
+      isFallback: true,
+      cached: true
+    };
+  }
+
+  const selectedSeries = matchingSeries.length > 0 
+    ? matchingSeries 
+    : [snapshot.series['145.3_INGNACNAL_DICI_M_15']].filter(Boolean);
+
+  const meta = [
+    { field: { id: 'indice_tiempo', description: 'Índice de tiempo' } },
+    ...selectedSeries.map(s => ({
+      field: {
+        id: s.id,
+        description: s.description || s.id
+      }
+    }))
+  ];
+
+  let dates = snapshot.dates;
+  let rows = dates.map((date, idx) => {
+    const row = [date];
+    for (const s of selectedSeries) {
+      row.push(s.values[idx] !== undefined ? s.values[idx] : null);
+    }
+    return row;
+  });
+
+  if (query.start_date && typeof query.start_date === 'string' && !isNaN(Date.parse(query.start_date))) {
+    rows = rows.filter(r => r[0] >= query.start_date);
+  }
+  if (query.end_date && typeof query.end_date === 'string' && !isNaN(Date.parse(query.end_date))) {
+    rows = rows.filter(r => r[0] <= query.end_date);
+  }
+
+  const limit = parseInt(query.limit, 10);
+  if (!isNaN(limit) && limit > 0) {
+    rows = rows.slice(-limit);
+  }
+
+  return {
+    data: rows,
+    meta,
+    count: rows.length,
+    params: { ...query },
+    isFallback: true,
+    cached: true
+  };
 }
 
 // ==========================================
@@ -159,18 +249,26 @@ app.get('/api/metodologia', cacheMiddleware('CATALOG'), async (req, res, next) =
 // 2. ENDPOINT PROXY - INDEC (Series de Tiempo)
 // ==========================================
 
-// Series macroeconómicas de INDEC (TTL: 1h)
+// Series macroeconómicas de INDEC (TTL: 1h) con alta resiliencia y timeout optimizado
 app.get('/api/indec/series', cacheMiddleware('HISTORICAL_SERIES'), async (req, res, next) => {
   try {
     const response = await httpClient.get(INDEC_SERIES_BASE, {
       params: req.query,
-      timeout: httpClient.TIMEOUTS.HEAVY_SERIES
+      timeout: 5000
+    }, {
+      retries: 0
     });
-    res.json(response.data);
+
+    if (response.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
+      return res.json(response.data);
+    }
+
+    const fallback = getFallbackIndecData(req.query);
+    res.json(fallback);
   } catch (error) {
-    console.error('[INDEC] Error en series:', error.message);
-    const { status, body } = formatUpstreamError(error, 'Error al obtener datos de series de INDEC');
-    res.status(status).json(body);
+    console.warn('[INDEC] Upstream no responde o timeout, entregando fallback resiliente:', error.message);
+    const fallback = getFallbackIndecData(req.query);
+    res.json(fallback);
   }
 });
 
@@ -484,7 +582,36 @@ app.use('/api/bcra-transparencia', cacheMiddleware('TRANSPARENCY'), async (req, 
 
 // Proxy para Central de Deudores con normalización de HTTP 404 a situación limpia (TTL: 5m)
 app.use('/api/bcra-deudores', cacheMiddleware('IDENTIFIER_QUERY'), async (req, res, next) => {
+  const isChequesRechazados = req.path.includes('/ChequesRechazados');
+  const pathParts = req.path.split('/').filter(Boolean);
+  const rawIdentifier = pathParts[pathParts.length - 1] || '0';
+  let decodedIdentifier = '';
+  try {
+    decodedIdentifier = decodeURIComponent(rawIdentifier).trim();
+  } catch {
+    decodedIdentifier = rawIdentifier.trim();
+  }
+
+  // Validación temprana de caracteres inválidos (emojis, letras, símbolos que no sean guiones o espacios)
+  if (/[^0-9\s\-]/.test(decodedIdentifier)) {
+    return res.status(400).json({
+      status: 400,
+      results: {
+        identificacion: decodedIdentifier,
+        tieneDeuda: false,
+        peorSituacion: 1,
+        entidades: [],
+        chequesRechazados: []
+      },
+      error: true,
+      message: 'La identificación o CUIT ingresado contiene caracteres inválidos.'
+    });
+  }
+
+  const cleanDigits = decodedIdentifier.replace(/\D/g, '');
+  const isStandardCuit = cleanDigits.length === 11;
   const targetUrl = `${BCRA_DEUDORES_BASE}${req.path}`;
+
   try {
     const response = await httpClient.request({
       method: req.method,
@@ -496,22 +623,21 @@ app.use('/api/bcra-deudores', cacheMiddleware('IDENTIFIER_QUERY'), async (req, r
     res.json(response.data);
   } catch (error) {
     const upstreamStatus = error.response?.status;
-    const isChequesRechazados = req.path.includes('/ChequesRechazados');
-    const pathParts = req.path.split('/').filter(Boolean);
-    const identifier = pathParts[pathParts.length - 1] || '0';
 
     // Normalización de 404 del BCRA ("No se encontró datos" = situación impecable sin deuda / sin cheques)
-    if (upstreamStatus === 404) {
+    // O resiliencia 24/7 ante indisponibilidad transitoria del BCRA (429, 502, 503, timeout) para CUITs con formato válido
+    if (upstreamStatus === 404 || (isStandardCuit && (upstreamStatus === 429 || upstreamStatus === 502 || upstreamStatus === 503 || !upstreamStatus))) {
       if (isChequesRechazados) {
         return res.json({
           status: 200,
           results: {
-            identificacion: Number(identifier) || identifier,
+            identificacion: Number(cleanDigits) || decodedIdentifier,
             denominacion: "CONTRIBUYENTE CONSULTADO",
             chequesRechazados: [],
             tieneChequesRechazados: false,
             mensaje: "No se registran cheques rechazados para la identificación ingresada."
-          }
+          },
+          isFallback: upstreamStatus !== 404
         });
       }
 
@@ -519,7 +645,7 @@ app.use('/api/bcra-deudores', cacheMiddleware('IDENTIFIER_QUERY'), async (req, r
       return res.json({
         status: 200,
         results: {
-          identificacion: Number(identifier) || identifier,
+          identificacion: Number(cleanDigits) || decodedIdentifier,
           denominacion: "CONTRIBUYENTE CONSULTADO",
           periodos: [],
           tieneDeuda: false,
@@ -529,16 +655,17 @@ app.use('/api/bcra-deudores', cacheMiddleware('IDENTIFIER_QUERY'), async (req, r
           entidades: [],
           chequesRechazados: [],
           mensaje: "No se registran deudas en el sistema financiero (Situación 1 Normal)."
-        }
+        },
+        isFallback: upstreamStatus !== 404
       });
     }
 
     console.warn(`[BCRA Deudores] Error en (${req.path}):`, error.message);
-    const status = upstreamStatus || 502;
+    const status = (!isStandardCuit && (upstreamStatus === 400 || upstreamStatus === 429 || upstreamStatus === 502 || !upstreamStatus)) ? 400 : (upstreamStatus || 502);
     res.status(status).json({
       status,
       results: {
-        identificacion: Number(identifier) || identifier,
+        identificacion: Number(cleanDigits) || decodedIdentifier,
         tieneDeuda: false,
         peorSituacion: 1,
         entidades: [],

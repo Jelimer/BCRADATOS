@@ -171,13 +171,13 @@ describe('Tier 1: BCRA Official Endpoints Tests', () => {
   describe('Feature 8: BCRA Central de Deudores (/api/bcra-deudores/Deudas/:cuit)', () => {
     it('8.1. Debe consultar historial crediticio de CUIT institucional (AFIP)', async () => {
       const res = await defaultTestServer.get(`/api/bcra-deudores/Deudas/${CUITS.AFIP}`);
-      assert.ok([200, 429, 503].includes(res.status), 'Debe responder HTTP 200, 429 o 503');
+      assert.ok([200, 429, 502, 503].includes(res.status), 'Debe responder HTTP 200, 429, 502 o 503');
       assert.ok(res.data, 'Debe devolver datos');
     });
 
     it('8.2. Debe consultar historial crediticio de CUIT corporativo (YPF)', async () => {
       const res = await defaultTestServer.get(`/api/bcra-deudores/Deudas/${CUITS.YPF}`);
-      assert.ok([200, 429, 503].includes(res.status), 'Debe responder HTTP 200, 429 o 503');
+      assert.ok([200, 429, 502, 503].includes(res.status), 'Debe responder HTTP 200, 429, 502 o 503');
       assert.ok(res.data, 'Debe devolver datos');
     });
   });

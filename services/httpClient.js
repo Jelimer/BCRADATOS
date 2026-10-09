@@ -44,6 +44,26 @@ function isBymaUrl(url) {
 }
 
 /**
+ * Determina si una URL apunta a loopback local (localhost, 127.0.0.1, ::1).
+ * @param {string} url 
+ * @returns {boolean}
+ */
+function isLoopbackUrl(url) {
+  if (!url) return false;
+  try {
+    const hasScheme = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(url);
+    if (!hasScheme) {
+      return url.includes('localhost') || url.includes('127.0.0.1') || url.includes('::1');
+    }
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.replace(/^\[|\]$/g, '');
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+  } catch {
+    return url.includes('localhost') || url.includes('127.0.0.1') || url.includes('::1');
+  }
+}
+
+/**
  * Determina si un error es transitorio y califica para reintento automático.
  * @param {any} error 
  * @returns {boolean}
@@ -98,6 +118,7 @@ async function executeRequest(config, options = {}) {
   // Asignar agente HTTPS aislado solo para BYMA
   const fullUrl = (config.baseURL ? config.baseURL + (config.url || '') : config.url) || '';
   const isByma = isBymaUrl(fullUrl);
+  const isLoopback = isLoopbackUrl(fullUrl);
 
   const requestConfig = {
     ...config,
@@ -106,7 +127,8 @@ async function executeRequest(config, options = {}) {
       ...(config.headers || {})
     },
     httpsAgent: isByma ? bymaHttpsAgent : (config.httpsAgent || secureHttpsAgent),
-    timeout: config.timeout || TIMEOUTS.STANDARD
+    timeout: config.timeout || TIMEOUTS.STANDARD,
+    ...(isLoopback ? { proxy: false } : {})
   };
 
   let attempt = 0;
