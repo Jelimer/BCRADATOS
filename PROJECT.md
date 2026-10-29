@@ -47,8 +47,8 @@ El proyecto es una plataforma web integral full-stack de alto rendimiento compue
 
 3. **Suite de Pruebas Automatizadas (`npm test`):**
    - Ejecución nativa con el motor `node:test` y `node:assert/strict` de Node.js v22 (sin dependencias frágiles externas).
-   - Cobertura ampliada a 222 tests en 76 suites de pruebas con 100% de éxito (Exit Code 0) y cero regresiones.
-   - Abarca verificación de salud y rutas base, políticas de caché LRU O(1), contratos del BCRA, proxies externos (INDEC, BYMA, DolarApi, ArgentinaDatos), nuevos endpoints CriptoYa y Finanzas, esquemas en `schemaValidator.js`, contingencia y fallbacks ante caídas, snapshots persistentes 24/7, análisis estático ESM sin navegador, detección de ciclos circulares DFS en módulos frontend, pruebas de compresión HTTP (gzip, deflate, bypass), pruebas unitarias puras de `CacheService`, combinaciones cross-feature y pruebas adversariales de estrés.
+   - Cobertura ampliada a 303 tests en 102 suites de pruebas con 100% de éxito (Exit Code 0) y cero regresiones.
+   - Abarca verificación de salud y rutas base, políticas de caché LRU O(1), contratos del BCRA, proxies externos (INDEC, BYMA, DolarApi, ArgentinaDatos), nuevos endpoints CriptoYa y Finanzas, esquemas en `schemaValidator.js`, contingencia y fallbacks ante caídas, snapshots persistentes 24/7, análisis estático ESM sin navegador, detección de ciclos circulares DFS en módulos frontend, pruebas de compresión HTTP (gzip, deflate, bypass), pruebas unitarias puras de `CacheService`, combinaciones cross-feature, normalización de CSS tokens WCAG AA, plugins visuales de Chart.js (`verticalCrosshairPlugin`, `maxMinLabelPlugin`, `lineShadowPlugin`), tolerancia a entornos headless DOM, optimización algorítmica de ordenamiento cronológico ISO $O(1)$, paginación en memoria $O(1)$ con `DocumentFragment`, búsqueda hash $O(1)$ en bonos BYMA (`PRIORITY_MAP`), y 4 suites de verificación y estrés adversarial (100% aprobado, 0 mutantes sobrevivientes).
 
 ---
 
@@ -96,6 +96,13 @@ El proyecto es una plataforma web integral full-stack de alto rendimiento compue
 | 38 | Backend: Presets TTL en cacheService | Incorporación de presets oficiales `BANCOS: 60`, `INDICADORES: 3600`, `FINANZAS: 1800` en `this.TTL` | M3_CACHE_COMPRESSION | **DONE** |
 | 39 | Testing: Suites de compresión HTTP y unitarios de caché | `tests/compression.test.js` (gzip >1KB, sin compresión <1KB, bypass `x-no-compression`, deflate) y `tests/cacheService.unit.test.js` (LRU 2.000, purga, hitRate) | M3_CACHE_COMPRESSION | **DONE** |
 | 40 | Verificación E2E y Certificación Final v2.6.0-PROD | Certificación de 222 tests en 76 suites (Exit Code 0), actualización de AUDIT_REPORT.md y PROJECT.md | M4_E2E_VERIFICATION_REPORT | **DONE** |
+| 41 | CSS Tokens Normalization & WCAG Contrast | Definición de alias `--text-main` y `--bg-card`, corrección de `rgba(hex)` inválidos en `.loading-overlay` y hovers, diferenciación de contrastes WCAG AA en modo claro | M1_VISUAL_CHARTS | **DONE** |
+| 42 | Layout Grid & Responsiveness Polish | Media queries para `.cheques-inputs-grid` en móviles, unificación de altura mínima en `.kpi-card`, contención de `.chart-wrapper` y `white-space: nowrap` en tablas | M1_VISUAL_CHARTS | **DONE** |
+| 43 | Chart.js Visual & Interactive Enhancements | Centralización de `Chart.defaults`, tooltips con formato argentino `es-AR`, sincronización de temas (Dólar Oficial visible en modo claro), corrección de `maxMinLabelPlugin` en barras y multi-series, plugin de línea guía `crosshair` y callbacks de ejes | M1_VISUAL_CHARTS | **DONE** |
+| 44 | Frontend Cache & Memory Bug Fix | Corrección del bug en `clientCache.has` para valores `null` en `state.js`, poda de gráficos destruidos en `activeCharts` y prevención de zombis | M2_PERF_CODE | **DONE** |
+| 45 | High-Performance Sorting & Paginación O(1) | Sustitución de `localeCompare` por comparación lexicográfica directa en `server.js` y `api.js`, paginación $O(1)$ sin clonado/reversión en `tabBcra.js` y `tabDolares.js`, renderizado con `DocumentFragment` y `Set` de favoritos | M2_PERF_CODE | **DONE** |
+| 46 | Backend Route Cleanups & Presets | Consolidación de fallback de bonos en `findFallbackBond` en `server.js`, corrección de regex `/[DCXYZ]$/` y uso de presets TTL formales `BANCOS` e `INDICADORES` | M2_PERF_CODE | **DONE** |
+| 47 | E2E Regression Verification & Final Repository Audit | Certificación del 100% de la suite de pruebas `npm test` (303 tests, 102 suites), 4 arneses empíricos adversariales y auditoría forense de integridad | M3_E2E_AUDIT | **DONE** |
 
 ---
 
@@ -115,6 +122,9 @@ El proyecto es una plataforma web integral full-stack de alto rendimiento compue
 | **M2_FRONTEND_PERF** | Frontend Performance & Lifecycle (v2.6) | Idempotencia en tabBcra, ciclo in-place en Chart.js de BYMA con sincronización de temas, poda LRU en clientCache (200) | none | **DONE** |
 | **M3_CACHE_COMPRESSION** | Cache LRU & HTTP Compression (v2.6) | Sincronización de hits/misses y LRU en cacheService.getEntry, TTLs BANCOS/INDICADORES/FINANZAS, suites de compresión y caché unitaria | M1_BACKEND_RESILIENCE | **DONE** |
 | **M4_E2E_VERIFICATION_REPORT** | E2E Verification & Audit Release (v2.6.0-PROD) | Certificación de 222 tests en 76 suites (100% pass, Exit Code 0), actualización exhaustiva de AUDIT_REPORT.md y PROJECT.md | M1_BACKEND_RESILIENCE, M2_FRONTEND_PERF, M3_CACHE_COMPRESSION | **DONE** |
+| **M1_VISUAL_CHARTS** | Visual, Layout & Chart.js Polish | CSS tokens, WCAG contraste, responsividad de maquetación, gráficos Chart.js, tooltips y formato español | none | **DONE** |
+| **M2_PERF_CODE** | Performance & Code Optimizations | Bug fix `clientCache.has`, ordenamiento ISO $O(1)$, paginación en memoria $O(1)$, DocumentFragment en catálogo BCRA, limpieza server.js | M1_VISUAL_CHARTS | **DONE** |
+| **M3_E2E_AUDIT** | E2E Verification & Forensic Audit | Verificación completa de `npm test` (303 tests en 102 suites), 4 suites adversariales y auditoría forense de integridad | M1_VISUAL_CHARTS, M2_PERF_CODE | **DONE** |
 
 ---
 
@@ -170,9 +180,20 @@ bcra-monetarias/
 │   ├── criptoya-resilience.test.js # Tests de contingencia, fallbacks por snapshot y timeout en CriptoYa
 │   ├── frontend-esm.test.js       # Verificación estática de sintaxis ESM, detección de ciclos DFS, idempotencia y poda
 │   ├── challenger_empirical.test.js # Batería de validación empírica y stress testing
+│   ├── challenger_m1_adversarial.test.js # Validación adversarial de contingencias BCRA
+│   ├── challenger_m2_1_adversarial.test.js # Validación adversarial de plugins y estado
+│   ├── challenger_m2_1_cache.test.js # Verificación de límites y poda preventiva de caché
+│   ├── challenger_opt_1_1_stress.test.js # Estrés de renderizado y temas de gráficos
+│   ├── challenger_opt_1_2_css_dom.test.js # Verificación de tokens CSS, contraste WCAG y DOM
+│   ├── challenger_opt_2_2_sorting_stress.test.js # Estrés de ordenamiento lexicográfico O(1)
+│   ├── challenger_remed_2_concurrency.test.js # Concurrencia de registros y desregistros de Chart.js
 │   ├── compression.test.js        # Validación de compresión HTTP Gzip, Deflate y bypass x-no-compression
-│   └── cacheService.unit.test.js  # Pruebas unitarias puras de CacheService (LRU O(1), TTL, purga, hitRate)
-├── AUDIT_REPORT.md                # Reporte técnico integral de auditoría, optimización y certificación v2.6.0-PROD
+│   ├── cacheService.unit.test.js  # Pruebas unitarias puras de CacheService (LRU O(1), TTL, purga, hitRate)
+│   ├── adversarial-challenger-m2-2.js # Arnés adversarial de frontend state, cache edge-cases y fuzzing
+│   ├── adversarial-mutation-harness.js # Arnés de análisis de mutación y sensibilidad de esquemas
+│   ├── adversarial-challenger-charts-stress.js # Arnés de estrés extremo en Chart.js y temas
+│   └── adversarial-challenger-m1-2.js # Arnés de estrés backend, CUITs malformados y 502/429
+├── AUDIT_REPORT.md                # Reporte técnico integral de auditoría, optimización y certificación v2.8.0-PROD
 └── PROJECT.md                     # Documento maestro de arquitectura y especificación
 ```
 

@@ -13,6 +13,14 @@ import { formatValue, formatValueCompact, formatDate, debounce } from './utils.j
 import { showToast } from './ui.js';
 import { registerChart, unregisterChart } from './charts.js';
 
+// Precomputar mapa de prioridad para búsquedas O(1) en ordenamiento de bonos
+const PRIORITY_MAP = new Map([
+  ['AL30', 0], ['AL30D', 1], ['GD30', 2], ['GD30D', 3],
+  ['AE38', 4], ['AE38D', 5], ['AL35', 6], ['AL35D', 7],
+  ['GD35', 8], ['GD35D', 9], ['AL29', 10], ['AL29D', 11],
+  ['GD29', 12], ['GD29D', 13]
+]);
+
 export const tabByma = {
   initialized: false,
 
@@ -216,15 +224,14 @@ export const tabByma = {
       return true;
     });
 
-    // Ordenamiento representativo: AL30 primero, luego GD30, luego el resto
-    const priority = ['AL30', 'AL30D', 'GD30', 'GD30D', 'AE38', 'AE38D', 'AL35', 'AL35D', 'GD35', 'GD35D', 'AL29', 'AL29D', 'GD29', 'GD29D'];
+    // Ordenamiento representativo O(1): AL30 primero, luego GD30, luego el resto
     filtered.sort((a, b) => {
-      const idxA = priority.indexOf(a.symbol);
-      const idxB = priority.indexOf(b.symbol);
-      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-      if (idxA !== -1) return -1;
-      if (idxB !== -1) return 1;
-      return a.symbol.localeCompare(b.symbol);
+      const pA = PRIORITY_MAP.get(a.symbol);
+      const pB = PRIORITY_MAP.get(b.symbol);
+      if (pA !== undefined && pB !== undefined) return pA - pB;
+      if (pA !== undefined) return -1;
+      if (pB !== undefined) return 1;
+      return a.symbol < b.symbol ? -1 : (a.symbol > b.symbol ? 1 : 0);
     });
 
     if (badge) {

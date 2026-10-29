@@ -85,6 +85,18 @@ function getFallbackBondsPanel() {
   return null;
 }
 
+/**
+ * Busca un bono en el panel de fallback o snapshot por sus posibles símbolos.
+ * @param {...string} symbols Símbolos candidatos a buscar
+ * @returns {object|null}
+ */
+function findFallbackBond(...symbols) {
+  const panel = getFallbackBondsPanel();
+  if (!panel || !Array.isArray(panel.data)) return null;
+  const candidates = symbols.filter(Boolean);
+  return panel.data.find(b => candidates.includes(b.symbol)) || null;
+}
+
 // Carga del snapshot persistente oficial de series de INDEC para contingencia
 let persistentIndecSnapshot = null;
 try {
@@ -217,8 +229,12 @@ app.get('/api/monetarias/:id', cacheMiddleware('HISTORICAL_SERIES'), async (req,
     if (data && Array.isArray(data.results)) {
       data.results.forEach(item => {
         if (Array.isArray(item.detalle)) {
-          // Ordenar cronológicamente (de más antiguo a más reciente)
-          item.detalle.sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''));
+          // Ordenar cronológicamente mediante comparación lexicográfica directa O(1)
+          item.detalle.sort((a, b) => {
+            const fA = a.fecha || '';
+            const fB = b.fecha || '';
+            return fA < fB ? -1 : (fA > fB ? 1 : 0);
+          });
         }
       });
     }
@@ -358,7 +374,7 @@ app.get('/api/byma/panel/public-bonds', cacheMiddleware(60), async (req, res, ne
 // Ficha técnica de especie/bono (TTL: 60s)
 app.get('/api/byma/bond-info/:symbol', cacheMiddleware(60), async (req, res, next) => {
   const { symbol } = req.params;
-  const cleanSymbol = symbol ? symbol.replace(/\s+(24HS|CI|48HS|72HS)$/i, '').replace(/[D|C|X|Y|Z]$/, '').trim() : '';
+  const cleanSymbol = symbol ? symbol.replace(/\s+(24HS|CI|48HS|72HS)$/i, '').replace(/[DCXYZ]$/, '').trim() : '';
 
   try {
     const response = await httpClient.post(
@@ -375,8 +391,7 @@ app.get('/api/byma/bond-info/:symbol', cacheMiddleware(60), async (req, res, nex
     }
 
     // Si responde vacío o sin datos, buscar en el snapshot persistente
-    const panel = getFallbackBondsPanel();
-    const bond = panel?.data?.find(b => b.symbol === symbol || b.symbol === cleanSymbol);
+    const bond = findFallbackBond(symbol, cleanSymbol);
     if (bond && bond.technicalSheet) {
       return res.json({
         content: { page_number: 1, page_count: 1, page_size: 50, total_elements_count: 1 },
@@ -391,8 +406,7 @@ app.get('/api/byma/bond-info/:symbol', cacheMiddleware(60), async (req, res, nex
     console.warn(`[BYMA] Error en ficha técnica ${symbol}:`, error.message);
 
     // Entregar fallback del snapshot si existe
-    const panel = getFallbackBondsPanel();
-    const bond = panel?.data?.find(b => b.symbol === symbol || b.symbol === cleanSymbol);
+    const bond = findFallbackBond(symbol, cleanSymbol);
     if (bond && bond.technicalSheet) {
       return res.json({
         content: { page_number: 1, page_count: 1, page_size: 50, total_elements_count: 1 },
@@ -444,9 +458,8 @@ app.get('/api/byma/historico/:symbol', cacheMiddleware(60), async (req, res, nex
     }
 
     // Si BYMA responde 'no_data', consultar serie histórica persistente en snapshot
-    const panel = getFallbackBondsPanel();
     const cleanSym = symbol.replace(/\s+(24HS|CI|48HS|72HS)$/i, '').trim();
-    const bond = panel?.data?.find(b => b.symbol === cleanSym || b.symbol === symbol);
+    const bond = findFallbackBond(cleanSym, symbol);
     if (bond && bond.historicalSeries && Array.isArray(bond.historicalSeries.c) && bond.historicalSeries.c.length > 0) {
       return res.json({
         ...bond.historicalSeries,
@@ -459,9 +472,8 @@ app.get('/api/byma/historico/:symbol', cacheMiddleware(60), async (req, res, nex
     console.warn(`[BYMA] Error en histórico ${symbol}:`, error.message);
 
     // Entregar fallback del snapshot si existe
-    const panel = getFallbackBondsPanel();
     const cleanSym = symbol.replace(/\s+(24HS|CI|48HS|72HS)$/i, '').trim();
-    const bond = panel?.data?.find(b => b.symbol === cleanSym || b.symbol === symbol);
+    const bond = findFallbackBond(cleanSym, symbol);
     if (bond && bond.historicalSeries && Array.isArray(bond.historicalSeries.c) && bond.historicalSeries.c.length > 0) {
       return res.json({
         ...bond.historicalSeries,
@@ -864,7 +876,7 @@ app.get('/api/criptoya/cripto/:coin?/:fiat?', cacheMiddleware('LIVE_MARKET'), as
 });
 
 // Cotizaciones de dólar minorista por banco y promedios generales (TTL: 60s)
-app.get('/api/criptoya/bancos', cacheMiddleware(60), async (req, res) => {
+app.get('/api/criptoya/bancos', cacheMiddleware(cacheService.TTL.BANCOS), async (req, res) => {
   try {
     const response = await httpClient.get(`${CRIPTOYA_BASE}/bancostodos`, {
       timeout: httpClient.TIMEOUTS.LIVE_MARKET
@@ -962,7 +974,7 @@ app.get('/api/finanzas/rendimientos', cacheMiddleware('TRANSPARENCY'), async (re
 });
 
 // Indicadores diarios UVA y CER consolidados concurrentemente (TTL: 1h / 3600s)
-app.get('/api/criptoya/indicadores', cacheMiddleware(3600), async (req, res) => {
+app.get('/api/criptoya/indicadores', cacheMiddleware(cacheService.TTL.INDICADORES), async (req, res) => {
   try {
     const [uvaSettled, cerSettled] = await Promise.allSettled([
       httpClient.get(`${CRIPTOYA_BASE}/uva`, { timeout: httpClient.TIMEOUTS.LIVE_MARKET }),

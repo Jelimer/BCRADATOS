@@ -73,13 +73,15 @@ export async function fetchBcraHistorical(idVariable) {
     rawData = Array.isArray(result) ? result : (result.data || []);
   }
 
-  return rawData
-    .map(item => ({
-      date: item.fecha,
-      value: parseFloat(item.valor)
-    }))
-    .filter(item => item.date && !isNaN(item.value))
-    .sort((a, b) => a.date.localeCompare(b.date));
+  const parsed = [];
+  for (let i = 0; i < rawData.length; i++) {
+    const item = rawData[i];
+    const val = typeof item.valor === 'number' ? item.valor : parseFloat(item.valor);
+    if (item.fecha && !isNaN(val)) {
+      parsed.push({ date: item.fecha, value: val });
+    }
+  }
+  return parsed.sort((a, b) => (a.date < b.date ? -1 : (a.date > b.date ? 1 : 0)));
 }
 
 // ==========================================

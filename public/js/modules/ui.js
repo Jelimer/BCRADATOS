@@ -4,7 +4,7 @@
  * y gestión del tema visual (oscuro / claro).
  */
 
-import { updateChartThemeAll } from './charts.js';
+import { updateChartThemeAll, setupChartGlobalDefaults } from './charts.js';
 
 /**
  * Muestra una notificación emergente tipo toast accesible.
@@ -75,6 +75,7 @@ export function initTheme() {
   } else {
     document.body.classList.add('dark-theme');
   }
+  setupChartGlobalDefaults();
 }
 
 /**
@@ -84,6 +85,7 @@ export function initTheme() {
 export function toggleTheme() {
   const isDark = document.body.classList.toggle('dark-theme');
   localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  setupChartGlobalDefaults();
   updateChartThemeAll(isDark);
   return isDark;
 }

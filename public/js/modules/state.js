@@ -82,7 +82,13 @@ export const clientCache = {
    * @returns {boolean}
    */
   has(key) {
-    return this.get(key) !== null;
+    const entry = this.store.get(key);
+    if (!entry) return false;
+    if (Date.now() > entry.expiresAt) {
+      this.store.delete(key);
+      return false;
+    }
+    return true;
   },
 
   /**

@@ -236,8 +236,8 @@ export const tabDolares = {
       });
 
       appState.dolares.historical.oficial = parsedOficial;
-      appState.dolares.historical.mep = parsedMep.sort((a, b) => a.date.localeCompare(b.date));
-      appState.dolares.historical.blue = parsedBlue.sort((a, b) => a.date.localeCompare(b.date));
+      appState.dolares.historical.mep = parsedMep.sort((a, b) => (a.date < b.date ? -1 : (a.date > b.date ? 1 : 0)));
+      appState.dolares.historical.blue = parsedBlue.sort((a, b) => (a.date < b.date ? -1 : (a.date > b.date ? 1 : 0)));
 
       clientCache.set('dolares_market_data', { live: appState.dolares.live, historical: appState.dolares.historical }, 60 * 1000);
 
@@ -631,8 +631,7 @@ export const tabDolares = {
       return;
     }
 
-    const sortedDates = [...dates].reverse();
-    const total = sortedDates.length;
+    const total = dates.length;
     const pageSize = appState.dolares.tablePageSize;
     const totalPages = Math.ceil(total / pageSize);
 
@@ -641,7 +640,12 @@ export const tabDolares = {
 
     const startIndex = (appState.dolares.tablePage - 1) * pageSize;
     const endIndex = Math.min(startIndex + pageSize, total);
-    const pageDates = sortedDates.slice(startIndex, endIndex);
+
+    // Extraer directamente las fechas de la página en orden cronológico descendente sin invertir el array completo
+    const pageDates = [];
+    for (let i = startIndex; i < endIndex; i++) {
+      pageDates.push(dates[total - 1 - i]);
+    }
 
     const fullMep = appState.dolares.historical.mep;
     const fullOficial = appState.dolares.historical.oficial;
@@ -653,6 +657,7 @@ export const tabDolares = {
     const filteredMepMap = new Map();
     filteredMep.forEach(d => filteredMepMap.set(d.date, d.value));
 
+    const fragment = document.createDocumentFragment();
     pageDates.forEach(date => {
       const mepVal = filteredMepMap.get(date) || null;
       const oficialVal = oficialMap[date] || null;
@@ -710,8 +715,9 @@ export const tabDolares = {
         <td class="text-right font-medium" style="color: var(--theme-dolares);">${brechaMepText}</td>
         <td class="text-right font-medium" style="color: #ffd60a;">${brechaBlueText}</td>
       `;
-      tbody.appendChild(tr);
+      fragment.appendChild(tr);
     });
+    tbody.appendChild(fragment);
 
     if (paginationInfo) paginationInfo.textContent = `Mostrando ${startIndex + 1}-${endIndex} de ${total} registros`;
     if (btnPrev) btnPrev.disabled = appState.dolares.tablePage <= 1;

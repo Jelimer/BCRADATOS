@@ -24,10 +24,11 @@ export function formatValue(value) {
 export function formatValueCompact(value) {
   if (value === null || value === undefined || isNaN(value)) return '-';
   const abs = Math.abs(value);
-  if (abs >= 1.0e+12) return (value / 1.0e+12).toFixed(1) + ' B';
-  if (abs >= 1.0e+9) return (value / 1.0e+9).toFixed(1) + ' M.M.';
-  if (abs >= 1.0e+6) return (value / 1.0e+6).toFixed(1) + ' M';
-  if (abs >= 1.0e+3) return (value / 1.0e+3).toFixed(1) + ' K';
+  const formatCompactNum = (num) => num.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  if (abs >= 1.0e+12) return formatCompactNum(value / 1.0e+12) + ' B';
+  if (abs >= 1.0e+9) return formatCompactNum(value / 1.0e+9) + ' M.M.';
+  if (abs >= 1.0e+6) return formatCompactNum(value / 1.0e+6) + ' M';
+  if (abs >= 1.0e+3) return formatCompactNum(value / 1.0e+3) + ' K';
   return formatValue(value);
 }
 

@@ -11,10 +11,12 @@
   --bg-secondary: #ffffff;
   --bg-sidebar: #ffffff;
   --text-primary: #0f172a;
+  --text-main: var(--text-primary);
   --text-secondary: #64748b;
   --text-muted: #94a3b8;
   
   --primary: #e31775;
+  --primary-rgb: 227, 23, 117;
   --primary-glow: rgba(227, 23, 117, 0.15);
   --primary-hover: #c40e60;
   
@@ -27,7 +29,8 @@
   --warning: #f59e0b;
   
   --border-color: #e2e8f0;
-  --card-bg: rgba(255, 255, 255, 0.85);
+  --card-bg: rgba(255, 255, 255, 0.90);
+  --bg-card: var(--card-bg);
   --card-shadow: 0 8px 30px rgba(0, 0, 0, 0.03), 0 1px 2px rgba(0, 0, 0, 0.02);
   --sidebar-shadow: 4px 0 30px rgba(0, 0, 0, 0.02);
   --glass-blur: 12px;
@@ -38,6 +41,18 @@
   
   --transition-fast: 0.2s ease;
   --transition-normal: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Colores Temáticos por Pestaña (Optimizados para Contraste WCAG AA en Modo Claro) */
+  --theme-bcra: #0284c7;        /* Azul legible sobre blanco (4.8:1) */
+  --theme-bcra-glow: rgba(2, 132, 199, 0.12);
+  --theme-indec: #9333ea;       /* Púrpura profundo legible (5.1:1) */
+  --theme-indec-glow: rgba(147, 51, 234, 0.12);
+  --theme-dolares: #16a34a;     /* Verde bosque legible (4.6:1) */
+  --theme-dolares-glow: rgba(22, 163, 74, 0.12);
+  --theme-byma: #d97706;        /* Ámbar dorado legible (4.5:1) */
+  --theme-byma-glow: rgba(217, 119, 6, 0.12);
+  --theme-cripto: #0284c7;
+  --theme-cripto-glow: rgba(2, 132, 199, 0.12);
 }
 
 /* Dark Theme overrides (Inspirado en el diseño premium) */
@@ -46,10 +61,12 @@ body.dark-theme {
   --bg-secondary: rgba(15, 22, 42, 0.45);
   --bg-sidebar: #090e1a;
   --text-primary: #f8fafc;
+  --text-main: var(--text-primary);
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
   
   --primary: #f43f5e;
+  --primary-rgb: 244, 63, 94;
   --primary-glow: rgba(244, 63, 94, 0.2);
   --primary-hover: #fb7185;
   
@@ -58,8 +75,21 @@ body.dark-theme {
   
   --border-color: rgba(255, 255, 255, 0.08);
   --card-bg: rgba(15, 22, 42, 0.65);
+  --bg-card: var(--card-bg);
   --card-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.03);
   --sidebar-shadow: 10px 0 45px rgba(0, 0, 0, 0.45);
+
+  /* Colores Temáticos Neón de Alto Impacto para Fondo Oscuro */
+  --theme-bcra: #00f0ff;
+  --theme-bcra-glow: rgba(0, 240, 255, 0.15);
+  --theme-indec: #bf5af2;
+  --theme-indec-glow: rgba(191, 90, 242, 0.15);
+  --theme-dolares: #30d158;
+  --theme-dolares-glow: rgba(48, 209, 88, 0.15);
+  --theme-byma: #ffd60a;
+  --theme-byma-glow: rgba(255, 214, 10, 0.15);
+  --theme-cripto: #00f0ff;
+  --theme-cripto-glow: rgba(0, 240, 255, 0.15);
 }
 
 * {
@@ -397,14 +427,19 @@ body .icon-moon { display: block; }
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(var(--bg-primary), 0.7);
-  backdrop-filter: blur(4px);
+  background-color: rgba(6, 9, 19, 0.72);
+  backdrop-filter: blur(6px);
   z-index: 10;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 16px;
+  border-radius: inherit;
+}
+
+body:not(.dark-theme) .loading-overlay {
+  background-color: rgba(248, 250, 252, 0.82);
 }
 
 .loading-overlay p {
@@ -434,6 +469,7 @@ body .icon-moon { display: block; }
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: 20px;
+  min-height: 94px;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -708,6 +744,32 @@ body.dark-theme .change-color.negative {
   width: 100%;
   height: 400px;
   position: relative;
+  transition: height 0.3s ease;
+}
+
+.chart-wrapper-indec {
+  height: 440px;
+}
+
+@media (max-width: 992px) {
+  .chart-wrapper {
+    height: 340px;
+  }
+  .chart-wrapper-indec {
+    height: 360px;
+  }
+}
+
+@media (max-width: 600px) {
+  .chart-wrapper {
+    height: 280px !important;
+  }
+  .chart-wrapper-indec {
+    height: 280px !important;
+  }
+  .byma-info-card .chart-wrapper {
+    height: 240px !important;
+  }
 }
 
 /* Table Design */
@@ -729,6 +791,7 @@ body.dark-theme .change-color.negative {
 .data-table th, .data-table td {
   padding: 12px 18px;
   border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
 }
 
 .data-table th {
@@ -749,7 +812,11 @@ body.dark-theme .change-color.negative {
 }
 
 .data-table tbody tr:hover {
-  background-color: rgba(var(--primary), 0.02);
+  background-color: rgba(244, 63, 94, 0.04);
+}
+
+body:not(.dark-theme) .data-table tbody tr:hover {
+  background-color: rgba(2, 132, 199, 0.05);
 }
 
 .data-table tbody tr:last-child td {
@@ -1153,18 +1220,6 @@ body.dark-theme .pill-btn.active {
 /* ==========================================================================
    NUEVOS ESTILOS - MULTI-TEMAS Y PESTAÑAS (SPA)
    ========================================================================== */
-
-/* Colores temáticos globales */
-:root {
-  --theme-bcra: #00f0ff;
-  --theme-bcra-glow: rgba(0, 240, 255, 0.15);
-  --theme-indec: #bf5af2;
-  --theme-indec-glow: rgba(191, 90, 242, 0.15);
-  --theme-dolares: #30d158;
-  --theme-dolares-glow: rgba(48, 209, 88, 0.15);
-  --theme-byma: #ffd60a;
-  --theme-byma-glow: rgba(255, 214, 10, 0.15);
-}
 
 /* Vista paneles individuales */
 .view-panel {
@@ -1613,11 +1668,6 @@ body.dark-theme .pill-btn.active {
 /* ==========================================================================
    COMPONENTES CRIPTOYA Y RENDIMIENTOS FINTECH
    ========================================================================== */
-:root {
-  --theme-cripto: #00f0ff;
-  --theme-cripto-glow: rgba(0, 240, 255, 0.15);
-}
-
 #cardDolarCripto {
   transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
@@ -1632,29 +1682,61 @@ body.dark-theme .pill-btn.active {
    CONSULTAS FINANCIERAS - SELECT DE PERÍODOS Y ACORDEÓN HISTÓRICO
    ========================================================================== */
 #deudorPeriodoSelect {
-  background-color: #1a1d2e !important;
-  color: #f8fafc !important;
-  color-scheme: dark !important;
-  border: 1px solid rgba(255, 255, 255, 0.25) !important;
-  padding: 6px 14px !important;
-  border-radius: 6px !important;
-  font-size: 13px !important;
-  font-weight: 600 !important;
-  cursor: pointer !important;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
   outline: none;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+#deudorPeriodoSelect:hover,
+#deudorPeriodoSelect:focus {
+  border-color: var(--theme-indec);
+}
+
+body.dark-theme #deudorPeriodoSelect {
+  background-color: #1a1d2e;
+  color: #f8fafc;
+  color-scheme: dark;
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
 #deudorPeriodoSelect option {
-  background-color: #1a1d2e !important;
-  color: #f8fafc !important;
-  padding: 8px 12px !important;
-  font-weight: 500 !important;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 8px 12px;
+  font-weight: 500;
+}
+
+body.dark-theme #deudorPeriodoSelect option {
+  background-color: #1a1d2e;
+  color: #f8fafc;
 }
 
 #deudorPeriodoSelect option:checked,
 #deudorPeriodoSelect option:hover {
-  background-color: #007aff !important;
-  color: #ffffff !important;
+  background-color: #007aff;
+  color: #ffffff;
+}
+
+/* Grilla adaptable de validación de cheques */
+.cheques-inputs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+@media (max-width: 640px) {
+  .cheques-inputs-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
 }
 
 .btn-expand-periodo {

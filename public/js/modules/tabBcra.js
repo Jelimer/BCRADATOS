@@ -267,11 +267,21 @@ export const tabBcra = {
       return;
     }
 
-    const favorites = appState.bcra.favorites || [];
-    const favoritesList = appState.bcra.filteredVariables.filter(v => favorites.includes(String(v.idVariable || v.id || v.codigo)));
-    const othersList = appState.bcra.filteredVariables.filter(v => !favorites.includes(String(v.idVariable || v.id || v.codigo)));
+    const favSet = new Set(appState.bcra.favorites || []);
+    const favoritesList = [];
+    const othersList = [];
 
-    const renderItem = (v) => {
+    for (let i = 0; i < appState.bcra.filteredVariables.length; i++) {
+      const v = appState.bcra.filteredVariables[i];
+      const id = String(v.idVariable || v.id || v.codigo);
+      if (favSet.has(id)) {
+        favoritesList.push(v);
+      } else {
+        othersList.push(v);
+      }
+    }
+
+    const renderItem = (v, container) => {
       const li = document.createElement('li');
       const id = String(v.idVariable || v.id || v.codigo);
       const desc = v.descripcion || v.name || '';
@@ -283,7 +293,7 @@ export const tabBcra = {
       textSpan.style.fontSize = '12.5px';
 
       const starIcon = document.createElement('i');
-      const isFav = favorites.includes(id);
+      const isFav = favSet.has(id);
       starIcon.className = isFav ? 'fa-solid fa-star fav-icon active' : 'fa-regular fa-star fav-icon';
 
       li.style.display = 'flex';
@@ -300,15 +310,16 @@ export const tabBcra = {
         li.classList.add('active');
       }
 
-      this.dom.variablesList.appendChild(li);
+      container.appendChild(li);
     };
 
+    const fragment = document.createDocumentFragment();
     if (favoritesList.length > 0) {
       const favHeader = document.createElement('li');
       favHeader.className = 'list-section-header';
       favHeader.innerHTML = '<i class="fa-solid fa-star" style="color: #f59e0b;"></i> Favoritos';
-      this.dom.variablesList.appendChild(favHeader);
-      favoritesList.forEach(v => renderItem(v));
+      fragment.appendChild(favHeader);
+      favoritesList.forEach(v => renderItem(v, fragment));
     }
 
     if (othersList.length > 0) {
@@ -316,9 +327,11 @@ export const tabBcra = {
       othersHeader.className = 'list-section-header';
       othersHeader.innerHTML = '<i class="fa-solid fa-chart-simple"></i> Conceptos';
       if (favoritesList.length > 0) othersHeader.style.marginTop = '16px';
-      this.dom.variablesList.appendChild(othersHeader);
-      othersList.forEach(v => renderItem(v));
+      fragment.appendChild(othersHeader);
+      othersList.forEach(v => renderItem(v, fragment));
     }
+
+    this.dom.variablesList.appendChild(fragment);
   },
 
   toggleFavorite(id) {
@@ -557,10 +570,16 @@ export const tabBcra = {
   },
 
   renderTable() {
-    const startIndex = (appState.bcra.tablePage - 1) * appState.bcra.tablePageSize;
-    const endIndex = Math.min(startIndex + appState.bcra.tablePageSize, appState.bcra.filteredData.length);
-    const sortedDataForTable = [...appState.bcra.filteredData].reverse();
-    const pageData = sortedDataForTable.slice(startIndex, endIndex);
+    const totalLen = appState.bcra.filteredData.length;
+    const pageSize = appState.bcra.tablePageSize;
+    const startIndex = (appState.bcra.tablePage - 1) * pageSize;
+    const endIndex = Math.min(startIndex + pageSize, totalLen);
+
+    // Extraer directamente los elementos en orden inverso sin clonar ni revertir el array completo
+    const pageData = [];
+    for (let i = startIndex; i < endIndex; i++) {
+      pageData.push(appState.bcra.filteredData[totalLen - 1 - i]);
+    }
 
     this.dom.tableBody.innerHTML = '';
     if (pageData.length === 0) {
@@ -569,7 +588,7 @@ export const tabBcra = {
       return;
     }
 
-    const totalLen = appState.bcra.filteredData.length;
+    const fragment = document.createDocumentFragment();
     pageData.forEach((item, pageIdx) => {
       const tr = document.createElement('tr');
       const originalIndex = totalLen - 1 - (startIndex + pageIdx);
@@ -589,10 +608,11 @@ export const tabBcra = {
         <td class="text-right font-medium">${formatValue(item.value)}</td>
         <td class="text-right ${varClass}">${varText}</td>
       `;
-      this.dom.tableBody.appendChild(tr);
+      fragment.appendChild(tr);
     });
 
-    this.updatePaginationControls(startIndex + 1, endIndex, appState.bcra.filteredData.length);
+    this.dom.tableBody.appendChild(fragment);
+    this.updatePaginationControls(startIndex + 1, endIndex, totalLen);
   },
 
   updatePaginationControls(start, end, total) {

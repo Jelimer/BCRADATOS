@@ -107,3 +107,34 @@ Ejecutar, consolidar y validar la suite completa de pruebas automatizadas (`npm 
 - [ ] El servidor Express inicia en el puerto configurado de manera estable, registrando estadísticas de caché saludables con hit rate medible y tiempos de respuesta reducidos para consultas recurrentes.
 - [ ] El comando `npm test` se ejecuta sin errores (Exit Code 0), aprobando el 100% de los casos de prueba de forma reproducible.
 - [ ] Se incluye o actualiza un informe técnico detallando las verificaciones realizadas, optimizaciones implementadas y el estado operativo final del sistema.
+
+
+## Follow-up — 2026-10-29T19:27:40Z
+
+Revisar el proyecto de dashboard macroeconómico y financiero para implementar una optimización integral que abarque mejoras visuales y de diseño (CSS, maquetación, gráficos en Chart.js) y optimizaciones de código y rendimiento en backend y frontend.
+
+Integrity mode: development
+
+## Requirements
+
+### R1. Mejoras Visuales y de Interfaz (UI/UX)
+Optimizar la presentación visual de la aplicación web modular (JavaScript vanilla, CSS, Chart.js), mejorando la maquetación, consistencia de componentes, legibilidad y visualización de gráficos estadísticos (BCRA, Central de Deudores, Central de Cheques, INDEC, Dólar, Bonos BYMA).
+
+### R2. Optimizaciones de Rendimiento y Código
+Optimizar el código y rendimiento general del backend (Node.js / Express) y frontend modular, mejorando los tiempos de respuesta, eficiencia en el procesamiento/manejo de datos y limpieza de la base de código.
+
+### R3. Idioma Estricto en Español
+Toda la interfaz de usuario, etiquetas, mensajes, leyendas de gráficos y textos visibles deben estar estrictamente en español.
+
+### R4. Preservación del 100% de Pruebas Automatizadas
+Todos los cambios y optimizaciones deben preservar la funcionalidad existente y mantener el 100% de la suite de pruebas Jest (`npm test`) pasando sin fallos ni regresiones.
+
+## Acceptance Criteria
+
+### Pruebas Automatizadas y Calidad de Código
+- [ ] La suite completa de pruebas Jest (`npm test`) ejecuta y pasa al 100% sin fallos ni regresiones.
+- [ ] La consola del navegador y el servidor ejecutan sin errores de sintaxis, excepciones no controladas ni advertencias de ejecución.
+
+### Presentación Visual e Interfaz
+- [ ] Toda la interfaz, etiquetas, títulos, leyendas y textos nuevos o modificados están redactados estrictamente en español.
+- [ ] Los gráficos de Chart.js y los componentes de visualización renderizan correctamente sin superposiciones de texto ni desbordamientos de maquetación en resoluciones comunes.
