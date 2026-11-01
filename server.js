@@ -637,28 +637,26 @@ app.use('/api/bcra-deudores', cacheMiddleware('IDENTIFIER_QUERY'), async (req, r
     const upstreamStatus = error.response?.status;
 
     // Normalización de 404 del BCRA ("No se encontró datos" = situación impecable sin deuda / sin cheques)
-    // O resiliencia 24/7 ante indisponibilidad transitoria del BCRA (429, 502, 503, timeout) para CUITs con formato válido
-    if (upstreamStatus === 404 || (isStandardCuit && (upstreamStatus === 429 || upstreamStatus === 502 || upstreamStatus === 503 || !upstreamStatus))) {
+    if (upstreamStatus === 404) {
       if (isChequesRechazados) {
         return res.json({
           status: 200,
           results: {
             identificacion: Number(cleanDigits) || decodedIdentifier,
-            denominacion: "CONTRIBUYENTE CONSULTADO",
+            denominacion: "SIN CHEQUES RECHAZADOS",
             chequesRechazados: [],
             tieneChequesRechazados: false,
             mensaje: "No se registran cheques rechazados para la identificación ingresada."
-          },
-          isFallback: upstreamStatus !== 404
+          }
         });
       }
 
-      // Consulta de Deudas regular o histórica
+      // Consulta de Deudas regular o histórica (404 significa que no registra deudas en la base del BCRA)
       return res.json({
         status: 200,
         results: {
           identificacion: Number(cleanDigits) || decodedIdentifier,
-          denominacion: "CONTRIBUYENTE CONSULTADO",
+          denominacion: "SIN DEUDAS REGISTRADAS (SITUACIÓN 1)",
           periodos: [],
           tieneDeuda: false,
           peorSituacion: 1,
@@ -667,8 +665,7 @@ app.use('/api/bcra-deudores', cacheMiddleware('IDENTIFIER_QUERY'), async (req, r
           entidades: [],
           chequesRechazados: [],
           mensaje: "No se registran deudas en el sistema financiero (Situación 1 Normal)."
-        },
-        isFallback: upstreamStatus !== 404
+        }
       });
     }
 

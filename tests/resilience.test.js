@@ -16,8 +16,8 @@ describe('Tier 2: Resilience, Contingency & Edge Cases Tests', () => {
   describe('Resilience: Central de Deudores & 404 Normalization', () => {
     it('2.1. CUIT sin deuda (404 en upstream) debe manejarse de forma limpia sin colapsar el servidor', async () => {
       const res = await defaultTestServer.get(`/api/bcra-deudores/Deudas/${CUITS.SIN_DEUDA}`);
-      // El servidor debe responder 200 con estructura de contingencia, o 503 si BCRA está en mantenimiento
-      assert.ok([200, 404, 503].includes(res.status), 'Debe responder con código HTTP controlado (200, 404 o 503)');
+      // El servidor debe responder 200 con estructura limpia (404 normalizado), o 429/502/503 si BCRA está en mantenimiento/límite
+      assert.ok([200, 404, 429, 502, 503].includes(res.status), `Debe responder con código HTTP controlado (200, 404, 429, 502 o 503), recibido ${res.status}`);
       assert.ok(res.data, 'La respuesta no debe ser nula');
 
       if (res.status === 200) {

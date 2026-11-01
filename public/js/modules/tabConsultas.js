@@ -32,6 +32,8 @@ export const tabConsultas = {
     const chequeInput = document.getElementById('chequeNumeroInput');
     const btnReintentarD = document.getElementById('btnReintentarDeudor');
     const btnReintentarC = document.getElementById('btnReintentarCheque');
+    const btnCargarDemo = document.getElementById('btnCargarDemoDeudor');
+    const btnEjemploDemo = document.getElementById('btnEjemploDemoCuit');
     const periodoSelect = document.getElementById('deudorPeriodoSelect');
     const btnToggleHistTable = document.getElementById('btnToggleHistoricoTable');
 
@@ -39,6 +41,8 @@ export const tabConsultas = {
     if (btnCheques) btnCheques.addEventListener('click', () => this.switchSubTab('cheques'));
 
     if (btnConsultarD) btnConsultarD.addEventListener('click', () => this.consultarDeudor());
+    if (btnCargarDemo) btnCargarDemo.addEventListener('click', () => this.cargarDemoDeudor());
+    if (btnEjemploDemo) btnEjemploDemo.addEventListener('click', () => this.cargarDemoDeudor());
     if (cuitInput) {
       cuitInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') this.consultarDeudor();
@@ -174,6 +178,7 @@ export const tabConsultas = {
     const resultsContainer = document.getElementById('deudoresResultContainer');
     const errorContainer = document.getElementById('deudoresErrorContainer');
     const historicoContainer = document.getElementById('deudoresHistoricoContainer');
+    const demoBanner = document.getElementById('deudorDemoBanner');
 
     if (!input) return;
 
@@ -182,6 +187,7 @@ export const tabConsultas = {
     if (resultsContainer) resultsContainer.classList.add('hidden');
     if (errorContainer) errorContainer.classList.add('hidden');
     if (historicoContainer) historicoContainer.classList.add('hidden');
+    if (demoBanner) demoBanner.classList.add('hidden');
 
     if (!isValidCuit(cuit)) {
       if (errorText) errorText.classList.remove('hidden');
@@ -225,14 +231,14 @@ export const tabConsultas = {
       if (errorContainer) {
         const titleEl = document.getElementById('deudorErrorTitle');
         const descEl = document.getElementById('deudorErrorDesc');
-        const isMaintenance = /mantenimiento|503/i.test(error.message);
+        const isMaintenance = /mantenimiento|503|502|unavailable/i.test(error.message);
 
         if (isMaintenance) {
           if (titleEl) titleEl.textContent = 'Servicio Oficial del BCRA en Mantenimiento Temporal';
           if (descEl) {
             descEl.innerHTML = `El servidor oficial del Banco Central (BCRA) informa actualmente: <strong>"El servicio se encuentra en mantenimiento."</strong><br>
             La API pública de la Central de Deudores suele interrumpirse por mantenimiento técnico programado durante fines de semana y horarios no bancarios.<br>
-            Las consultas oficiales en vivo se restablecerán de forma automática una vez concluida la ventana de mantenimiento del BCRA.`;
+            Puede probar las funciones interactivas del sistema con el botón <strong>"Probar con Datos de Demostración"</strong> o reintentar la consulta en vivo.`;
           }
           showToast('El servicio del BCRA se encuentra en mantenimiento temporal.', 'warning');
         } else {
@@ -249,6 +255,108 @@ export const tabConsultas = {
   },
 
   // ==========================================
+  // PERFIL DE DEMOSTRACIÓN INTERACTIVO
+  // ==========================================
+
+  cargarDemoDeudor() {
+    const input = document.getElementById('cuitInput');
+    if (input) input.value = '20301234567';
+    const errorText = document.getElementById('cuitErrorText');
+    const resultsContainer = document.getElementById('deudoresResultContainer');
+    const errorContainer = document.getElementById('deudoresErrorContainer');
+    const demoBanner = document.getElementById('deudorDemoBanner');
+
+    if (errorText) errorText.classList.add('hidden');
+    if (errorContainer) errorContainer.classList.add('hidden');
+    if (demoBanner) demoBanner.classList.remove('hidden');
+
+    const demoData = {
+      status: 200,
+      results: {
+        identificacion: 20301234567,
+        denominacion: "GARCÍA RODRÍGUEZ MARCELO ALEJANDRO (PERFIL DE PRUEBA)",
+        tieneDeuda: true,
+        peorSituacion: 2,
+        situacion: 2,
+        totalDeuda: 1425800,
+        entidades: [
+          {
+            entidad: "BANCO SANTANDER ARGENTINA S.A.",
+            monto: 780.5,
+            situacion: 1,
+            periodo: "01/2026"
+          },
+          {
+            entidad: "BANCO GALICIA Y BUENOS AIRES S.A.U.",
+            monto: 450.3,
+            situacion: 2,
+            periodo: "01/2026"
+          },
+          {
+            entidad: "TARJETA NARANJA DIGITAL COMPAÑIA FINANCIERA",
+            monto: 195.0,
+            situacion: 1,
+            periodo: "01/2026"
+          }
+        ],
+        chequesRechazados: [],
+        periodos: [
+          {
+            periodo: "202601",
+            entidades: [
+              { entidad: "BANCO SANTANDER ARGENTINA S.A.", monto: 780.5, situacion: 1 },
+              { entidad: "BANCO GALICIA Y BUENOS AIRES S.A.U.", monto: 450.3, situacion: 2 },
+              { entidad: "TARJETA NARANJA DIGITAL COMPAÑIA FINANCIERA", monto: 195.0, situacion: 1 }
+            ]
+          },
+          {
+            periodo: "202512",
+            entidades: [
+              { entidad: "BANCO SANTANDER ARGENTINA S.A.", monto: 720.0, situacion: 1 },
+              { entidad: "BANCO GALICIA Y BUENOS AIRES S.A.U.", monto: 430.0, situacion: 2 },
+              { entidad: "TARJETA NARANJA DIGITAL COMPAÑIA FINANCIERA", monto: 180.0, situacion: 1 }
+            ]
+          },
+          {
+            periodo: "202511",
+            entidades: [
+              { entidad: "BANCO SANTANDER ARGENTINA S.A.", monto: 690.0, situacion: 1 },
+              { entidad: "BANCO GALICIA Y BUENOS AIRES S.A.U.", monto: 410.0, situacion: 1 },
+              { entidad: "TARJETA NARANJA DIGITAL COMPAÑIA FINANCIERA", monto: 165.0, situacion: 1 }
+            ]
+          },
+          {
+            periodo: "202510",
+            entidades: [
+              { entidad: "BANCO SANTANDER ARGENTINA S.A.", monto: 650.0, situacion: 1 },
+              { entidad: "BANCO GALICIA Y BUENOS AIRES S.A.U.", monto: 380.0, situacion: 1 },
+              { entidad: "TARJETA NARANJA DIGITAL COMPAÑIA FINANCIERA", monto: 150.0, situacion: 1 }
+            ]
+          },
+          {
+            periodo: "202509",
+            entidades: [
+              { entidad: "BANCO SANTANDER ARGENTINA S.A.", monto: 610.0, situacion: 1 },
+              { entidad: "BANCO GALICIA Y BUENOS AIRES S.A.U.", monto: 350.0, situacion: 1 }
+            ]
+          },
+          {
+            periodo: "202508",
+            entidades: [
+              { entidad: "BANCO SANTANDER ARGENTINA S.A.", monto: 580.0, situacion: 1 },
+              { entidad: "BANCO GALICIA Y BUENOS AIRES S.A.U.", monto: 320.0, situacion: 1 }
+            ]
+          }
+        ]
+      }
+    };
+
+    this.renderDeudorResults(demoData, '20301234567');
+    this.renderDeudorHistory(demoData, demoData, '20301234567');
+    showToast('Cargado perfil de demostración interactivo.', 'info');
+  },
+
+  // ==========================================
   // RENDERIZADO DE RESULTADOS PRINCIPALES
   // ==========================================
 
@@ -261,7 +369,7 @@ export const tabConsultas = {
     const periodos = results.periodos || [];
     const tieneDeuda = results.tieneDeuda !== false && periodos.length > 0;
 
-    let nombre = results.denominacion || 'CONSULTA SATISFACTORIA (SIN DEUDAS)';
+    let nombre = results.denominacion || (tieneDeuda ? 'CONTRIBUYENTE CONSULTADO' : 'SIN DEUDAS REGISTRADAS (SITUACIÓN 1)');
     let peorSit = results.peorSituacion || results.situacion || 1;
     let totalDeuda = 0;
     let cantBancos = 0;
@@ -307,11 +415,14 @@ export const tabConsultas = {
     }
 
     const cleanCuit = String(cuit).replace(/\D/g, '');
+    const formattedCuit = cleanCuit.length === 11 ? `${cleanCuit.slice(0, 2)}-${cleanCuit.slice(2, 10)}-${cleanCuit.slice(10)}` : cleanCuit;
     const deudorNombreEl = document.getElementById('deudorNombre');
     if (deudorNombreEl) deudorNombreEl.textContent = nombre.toUpperCase();
 
     const deudorCuitEl = document.getElementById('deudorCuit');
-    if (deudorCuitEl) deudorCuitEl.textContent = `CUIT/CUIL: ${cleanCuit.slice(0, 2)}-${cleanCuit.slice(2, 10)}-${cleanCuit.slice(10)}`;
+    if (deudorCuitEl) {
+      deudorCuitEl.textContent = `CUIT/CUIL: ${formattedCuit}${!tieneDeuda ? ' • Sin deudas informadas en el sistema financiero' : ''}`;
+    }
 
     const badge = document.getElementById('deudorBadgeStatus');
     const badgeText = document.getElementById('deudorBadgeText');
@@ -362,7 +473,7 @@ export const tabConsultas = {
     if (!deudas || deudas.length === 0) {
       tbody.innerHTML = `<tr><td colspan="4" class="text-center" style="padding: 24px 15px; color: #30d158; font-weight: 500;">
         <i class="fa-solid fa-circle-check" style="font-size: 16px; margin-right: 6px;"></i>
-        No se registran deudas activas ni morosidad informadas para este período.
+        El CUIT consultado no registra deudas activas ni morosidad informadas en el sistema financiero del BCRA.
       </td></tr>`;
       return;
     }
