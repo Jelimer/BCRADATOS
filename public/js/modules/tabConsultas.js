@@ -10,7 +10,7 @@
 
 import { fetchDeudas, fetchDeudasHistoricas, fetchChequeDenunciado } from './api.js';
 import { clientCache, appState } from './state.js';
-import { formatValue, formatValueCompact, isValidCuit } from './utils.js';
+import { formatValue, formatValueCompact, formatMilesSinDecimales, isValidCuit, downloadBlob } from './utils.js';
 import { showToast } from './ui.js';
 import { registerChart, unregisterChart } from './charts.js';
 
@@ -36,6 +36,7 @@ export const tabConsultas = {
     const btnEjemploDemo = document.getElementById('btnEjemploDemoCuit');
     const periodoSelect = document.getElementById('deudorPeriodoSelect');
     const btnToggleHistTable = document.getElementById('btnToggleHistoricoTable');
+    const btnCapturar = document.getElementById('btnCapturarPantallaDeudor');
 
     if (btnDeudores) btnDeudores.addEventListener('click', () => this.switchSubTab('deudores'));
     if (btnCheques) btnCheques.addEventListener('click', () => this.switchSubTab('cheques'));
@@ -43,6 +44,7 @@ export const tabConsultas = {
     if (btnConsultarD) btnConsultarD.addEventListener('click', () => this.consultarDeudor());
     if (btnCargarDemo) btnCargarDemo.addEventListener('click', () => this.cargarDemoDeudor());
     if (btnEjemploDemo) btnEjemploDemo.addEventListener('click', () => this.cargarDemoDeudor());
+    if (btnCapturar) btnCapturar.addEventListener('click', () => this.capturarPantallaDeudor());
     if (cuitInput) {
       cuitInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') this.consultarDeudor();
@@ -723,13 +725,121 @@ export const tabConsultas = {
     const dataDeuda = chronological.map(p => p.totalDeuda);
     const backgroundColors = chronological.map(p => this.getColorForSituacion(p.peorSit));
 
+    // Cálculos de MÁX, MÍN y PROMEDIO (sin decimales, separando miles con punto)
+    const maxDeuda = dataDeuda.length > 0 ? Math.max(...dataDeuda) : 0;
+    const deudasPositivas = dataDeuda.filter(d => d > 0);
+    const minDeuda = deudasPositivas.length > 0 ? Math.min(...deudasPositivas) : (dataDeuda.length > 0 ? Math.min(...dataDeuda) : 0);
+    const totalSuma = dataDeuda.reduce((acc, v) => acc + (Number(v) || 0), 0);
+    const avgDeuda = dataDeuda.length > 0 ? (totalSuma / dataDeuda.length) : 0;
+
+    // Actualizar etiquetas en la cabecera
+    const pillMax = document.getElementById('pillMaxDeuda');
+    const pillMin = document.getElementById('pillMinDeuda');
+    const pillAvg = document.getElementById('pillAvgDeuda');
+    if (pillMax) pillMax.innerHTML = `<i class="fa-solid fa-arrow-up"></i> MÁX: ${formatMilesSinDecimales(maxDeuda)}`;
+    if (pillMin) pillMin.innerHTML = `<i class="fa-solid fa-arrow-down"></i> MÍN: ${formatMilesSinDecimales(minDeuda)}`;
+    if (pillAvg) pillAvg.innerHTML = `<i class="fa-solid fa-ellipsis"></i> PROMEDIO: ${formatMilesSinDecimales(avgDeuda)}`;
+
     const isDark = document.body.classList.contains('dark-theme');
     const gridColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)';
     const textColor = isDark ? '#94a3b8' : '#64748b';
 
+    // Plugin para renderizar etiquetas MÁX y MÍN directamente sobre los puntos del gráfico
+    const maxMinLabelsPlugin = {
+      id: 'maxMinLabelsPlugin',
+      afterDatasetsDraw: (chart) => {
+        if (!dataDeuda || dataDeuda.length === 0) return;
+        const ctx = chart.ctx;
+        const metaBar = chart.getDatasetMeta(0);
+        if (!metaBar || !metaBar.data || metaBar.data.length === 0) return;
+
+        const maxIdx = dataDeuda.indexOf(maxDeuda);
+        const minIdx = dataDeuda.indexOf(minDeuda);
+        const isDarkMode = document.body.classList.contains('dark-theme');
+
+        const drawBadge = (idx, labelText, valueText, bgCol, textCol) => {
+          if (idx < 0 || idx >= metaBar.data.length) return;
+          const elem = metaBar.data[idx];
+          if (!elem) return;
+
+          const fullText = `${labelText} ${valueText}`;
+          ctx.save();
+          ctx.font = 'bold 11px Inter, system-ui, sans-serif';
+          const textWidth = ctx.measureText(fullText).width;
+          const padX = 8;
+          const padY = 3;
+          const w = textWidth + (padX * 2);
+          const h = 20;
+
+          let boxX = elem.x - (w / 2);
+          if (boxX < chart.chartArea.left + 4) boxX = chart.chartArea.left + 4;
+          if (boxX + w > chart.chartArea.right - 4) boxX = chart.chartArea.right - w - 4;
+
+          let boxY = elem.y - h - 6;
+          if (boxY < chart.chartArea.top + 4) {
+            boxY = elem.y + 8;
+          }
+
+          ctx.fillStyle = bgCol;
+          ctx.beginPath();
+          if (ctx.roundRect) {
+            ctx.roundRect(boxX, boxY, w, h, 4);
+          } else {
+            ctx.rect(boxX, boxY, w, h);
+          }
+          ctx.fill();
+
+          ctx.strokeStyle = isDarkMode ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.15)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          ctx.fillStyle = textCol;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(fullText, boxX + (w / 2), boxY + (h / 2));
+          ctx.restore();
+        };
+
+        if (maxIdx >= 0 && maxDeuda > 0) {
+          drawBadge(maxIdx, 'MÁX:', formatMilesSinDecimales(maxDeuda), isDarkMode ? '#10b981' : '#059669', '#ffffff');
+        }
+        if (minIdx >= 0 && minIdx !== maxIdx && minDeuda > 0) {
+          drawBadge(minIdx, 'MÍN:', formatMilesSinDecimales(minDeuda), isDarkMode ? '#6366f1' : '#4f46e5', '#ffffff');
+        }
+
+        // Etiqueta en el extremo de la línea punteada de promedio
+        const yAvg = chart.scales.y.getPixelForValue(avgDeuda);
+        if (yAvg >= chart.chartArea.top && yAvg <= chart.chartArea.bottom) {
+          ctx.save();
+          ctx.font = 'bold 10px Inter, system-ui, sans-serif';
+          const avgText = `PROMEDIO: ${formatMilesSinDecimales(avgDeuda)}`;
+          const avgW = ctx.measureText(avgText).width + 12;
+          const avgH = 18;
+          const avgX = chart.chartArea.right - avgW - 6;
+          const avgY = yAvg - (avgH / 2);
+
+          ctx.fillStyle = isDarkMode ? '#1e293b' : '#ffffff';
+          ctx.strokeStyle = '#ff9f0a';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          if (ctx.roundRect) ctx.roundRect(avgX, avgY, avgW, avgH, 4);
+          else ctx.rect(avgX, avgY, avgW, avgH);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = isDarkMode ? '#ff9f0a' : '#b45309';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(avgText, avgX + (avgW / 2), avgY + (avgH / 2));
+          ctx.restore();
+        }
+      }
+    };
+
     const ctx = canvas.getContext('2d');
     this.historyChart = new Chart(ctx, {
       type: 'bar',
+      plugins: [maxMinLabelsPlugin],
       data: {
         labels,
         datasets: [
@@ -754,6 +864,19 @@ export const tabConsultas = {
             pointBackgroundColor: '#bf5af2',
             tension: 0.25,
             order: 1
+          },
+          {
+            label: `Promedio: ${formatMilesSinDecimales(avgDeuda)}`,
+            data: labels.map(() => Math.round(avgDeuda)),
+            type: 'line',
+            borderColor: '#ff9f0a',
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [6, 4], // Líneas punteadas
+            pointRadius: 0,
+            pointHoverRadius: 0,
+            fill: false,
+            order: 3
           }
         ]
       },
@@ -781,7 +904,7 @@ export const tabConsultas = {
                 return p ? `Período: ${p.periodoFormatted}` : '';
               },
               label: (item) => {
-                if (item.datasetIndex === 1) return null; // no repetir línea
+                if (item.datasetIndex === 1 || item.datasetIndex === 2) return null; // no repetir línea ni promedio
                 const p = chronological[item.dataIndex];
                 if (!p) return '';
                 return [
@@ -833,6 +956,162 @@ export const tabConsultas = {
     });
 
     registerChart(this.historyChart);
+  },
+
+  async capturarPantallaDeudor() {
+    const container = document.getElementById('deudoresResultContainer');
+    const btn = document.getElementById('btnCapturarPantallaDeudor');
+    if (!container || !btn) return;
+
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Capturando...';
+
+    try {
+      const cuitLimpio = String(this.cuitActual || 'reporte').replace(/\D/g, '');
+      const isDark = document.body.classList.contains('dark-theme');
+      const filename = `situacion_crediticia_${cuitLimpio}_${Date.now()}.png`;
+
+      if (typeof window.html2canvas === 'function') {
+        const canvas = await window.html2canvas(container, {
+          backgroundColor: isDark ? '#060913' : '#ffffff',
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          ignoreElements: (el) => el.id === 'btnCapturarPantallaDeudor'
+        });
+
+        canvas.toBlob((blob) => {
+          if (blob) {
+            downloadBlob(blob, filename, 'image/png');
+            showToast('Captura de pantalla descargada correctamente', 'success');
+          } else {
+            this.capturarConCanvasNativo(filename);
+          }
+        }, 'image/png');
+      } else {
+        this.capturarConCanvasNativo(filename);
+      }
+    } catch (err) {
+      console.warn('html2canvas falló o no disponible, usando fallback nativo:', err);
+      try {
+        const cuitLimpio = String(this.cuitActual || 'reporte').replace(/\D/g, '');
+        this.capturarConCanvasNativo(`situacion_crediticia_${cuitLimpio}_${Date.now()}.png`);
+      } catch (fallbackErr) {
+        showToast('No se pudo generar la captura de pantalla: ' + err.message, 'error');
+      }
+    } finally {
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+      }, 600);
+    }
+  },
+
+  capturarConCanvasNativo(filename) {
+    const isDark = document.body.classList.contains('dark-theme');
+    const width = 1200;
+    const height = 750;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+
+    // Fondo
+    ctx.fillStyle = isDark ? '#060913' : '#f8fafc';
+    ctx.fillRect(0, 0, width, height);
+
+    // Contenedor tipo tarjeta
+    ctx.fillStyle = isDark ? '#0f172a' : '#ffffff';
+    ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+    ctx.lineWidth = 1;
+    if (ctx.roundRect) ctx.roundRect(30, 30, width - 60, height - 60, 12);
+    else ctx.rect(30, 30, width - 60, height - 60);
+    ctx.fill();
+    ctx.stroke();
+
+    // Cabecera: Nombre y CUIT
+    const nombre = document.getElementById('deudorNombre')?.textContent || 'CONTRIBUYENTE CONSULTADO';
+    const cuit = document.getElementById('deudorCuit')?.textContent || `CUIT: ${this.cuitActual}`;
+    const badgeText = document.getElementById('deudorBadgeText')?.textContent || 'SITUACIÓN 1';
+
+    ctx.fillStyle = isDark ? '#f8fafc' : '#0f172a';
+    ctx.font = 'bold 22px Inter, system-ui, sans-serif';
+    ctx.fillText(nombre, 60, 80);
+
+    ctx.fillStyle = isDark ? '#94a3b8' : '#64748b';
+    ctx.font = '14px Inter, system-ui, sans-serif';
+    ctx.fillText(cuit, 60, 108);
+
+    // Badge Situación
+    ctx.fillStyle = isDark ? 'rgba(48, 209, 88, 0.2)' : 'rgba(22, 163, 74, 0.15)';
+    ctx.strokeStyle = '#30d158';
+    ctx.lineWidth = 1;
+    const badgeW = 220;
+    if (ctx.roundRect) ctx.roundRect(width - 60 - badgeW, 65, badgeW, 36, 6);
+    else ctx.rect(width - 60 - badgeW, 65, badgeW, 36);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = isDark ? '#30d158' : '#15803d';
+    ctx.font = 'bold 12.5px Inter, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(badgeText, width - 60 - (badgeW / 2), 88);
+    ctx.textAlign = 'left';
+
+    // 4 Métricas principales
+    const peorSit = document.getElementById('deudorPeorSituacion')?.textContent || '-';
+    const deudaCons = document.getElementById('deudorTotalDeuda')?.textContent || '$0';
+    const cantEnt = document.getElementById('deudorCantEntidades')?.textContent || '0';
+    const cheques = document.getElementById('deudorChequesRechazados')?.textContent || '0';
+
+    const metrics = [
+      { label: 'PEOR ESTADO', val: peorSit, col: '#ff9f0a' },
+      { label: 'DEUDA CONSOLIDADA', val: deudaCons, col: '#30d158' },
+      { label: 'BANCOS CONSULTADOS', val: cantEnt, col: isDark ? '#f8fafc' : '#0f172a' },
+      { label: 'CHEQUES RECHAZADOS', val: cheques, col: '#30d158' }
+    ];
+
+    const cardW = 250;
+    const startX = 60;
+    const cardY = 140;
+    metrics.forEach((m, idx) => {
+      const cx = startX + (idx * 270);
+      ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.03)' : '#f1f5f9';
+      ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+      if (ctx.roundRect) ctx.roundRect(cx, cardY, cardW, 80, 8);
+      else ctx.rect(cx, cardY, cardW, 80);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = isDark ? '#94a3b8' : '#64748b';
+      ctx.font = 'bold 11px Inter, system-ui, sans-serif';
+      ctx.fillText(m.label, cx + 16, cardY + 28);
+
+      ctx.fillStyle = m.col;
+      ctx.font = 'bold 20px Inter, system-ui, sans-serif';
+      ctx.fillText(m.val, cx + 16, cardY + 58);
+    });
+
+    // Gráfico de historia si existe
+    if (this.historyChart && this.historyChart.canvas) {
+      try {
+        ctx.fillStyle = isDark ? '#f8fafc' : '#0f172a';
+        ctx.font = 'bold 16px Inter, system-ui, sans-serif';
+        ctx.fillText('Evolución Crediticia Histórica (Últimos 24 Meses)', 60, 260);
+
+        ctx.drawImage(this.historyChart.canvas, 60, 280, width - 120, 380);
+      } catch (drawErr) {
+        console.warn('No se pudo estampar el canvas del chart:', drawErr);
+      }
+    }
+
+    canvas.toBlob((blob) => {
+      if (blob) {
+        downloadBlob(blob, filename, 'image/png');
+        showToast('Captura descargada correctamente', 'success');
+      }
+    }, 'image/png');
   },
 
   selectPeriodo(periodoStr, showToastMsg = true) {

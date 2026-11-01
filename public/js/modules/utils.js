@@ -17,6 +17,20 @@ export function formatValue(value) {
 }
 
 /**
+ * Formatea un valor en pesos separando miles con punto y sin decimales.
+ * @param {number|null} value 
+ * @returns {string}
+ */
+export function formatMilesSinDecimales(value) {
+  if (value === null || value === undefined || isNaN(value)) return '$0';
+  const rounded = Math.round(Number(value));
+  return '$' + new Intl.NumberFormat('es-AR', {
+    maximumFractionDigits: 0,
+    minimumFractionDigits: 0
+  }).format(rounded);
+}
+
+/**
  * Formatea un número de forma compacta (K, M, M.M., B).
  * @param {number|null} value 
  * @returns {string}

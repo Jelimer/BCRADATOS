@@ -464,18 +464,18 @@ export const tabComparador = {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>
-          <div style="font-weight: 600; color: #fff;">${item.entidad}</div>
-          <div style="font-size: 11.5px; color: #30d158; margin-top: 2px;">
+          <div class="hipo-bank-name">${item.entidad}</div>
+          <div class="hipo-bank-tag">
             <i class="fa-solid fa-tag"></i> ${item.destacado || item.linea}
           </div>
         </td>
-        <td class="text-right font-medium" style="color: #30d158; font-size: 14px;">${item.tnaClientesTexto || 'UVA + ' + item.tnaClientes.toFixed(2) + '%'}</td>
-        <td class="text-right font-medium" style="color: #ff9f0a;">${item.tnaNoClientesTexto || 'UVA + ' + item.tnaNoClientes.toFixed(2) + '%'}</td>
+        <td class="text-right font-medium hipo-tna-clientes">${item.tnaClientesTexto || 'UVA + ' + item.tnaClientes.toFixed(2) + '%'}</td>
+        <td class="text-right font-medium hipo-tna-noclients">${item.tnaNoClientesTexto || 'UVA + ' + item.tnaNoClientes.toFixed(2) + '%'}</td>
         <td class="text-right font-medium">${item.plazoMaxAnos} años</td>
         <td class="text-right font-medium">${item.ltvMax}%</td>
         <td class="text-right" style="font-size: 12px; color: var(--text-secondary); max-width: 140px;">${item.montoMaximoTexto}</td>
         <td class="text-right font-medium">${item.relacionCuotaIngreso}%</td>
-        <td class="text-right font-medium" style="color: #ffd60a; font-size: 14px;">$${formatValue(Math.round(cuotaPesosBanco))}</td>
+        <td class="text-right hipo-cuota-sim">$${formatValue(Math.round(cuotaPesosBanco))}</td>
         <td class="text-center">
           <button class="btn btn-sm btn-secondary btn-ver-requisitos" data-id="${item.id}" style="padding: 4px 10px; font-size: 12px; border-radius: 6px;">
             <i class="fa-solid fa-list-check"></i> Requisitos
@@ -509,8 +509,8 @@ export const tabComparador = {
     if (lineEl) lineEl.textContent = `${bank.linea} (${bank.tipo})`;
 
     contentEl.innerHTML = `
-      <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
-        <div style="font-weight: 600; color: #ffd60a; margin-bottom: 6px;"><i class="fa-solid fa-percent"></i> Tasas y Condiciones Financieras</div>
+      <div class="hipo-modal-section">
+        <div class="hipo-modal-section-gold"><i class="fa-solid fa-percent"></i> Tasas y Condiciones Financieras</div>
         <div><strong>Clientes (Haberes):</strong> ${bank.tnaClientesTexto || 'UVA + ' + bank.tnaClientes.toFixed(2) + '%'}</div>
         <div><strong>Mercado Abierto (No Clientes):</strong> ${bank.tnaNoClientesTexto || 'UVA + ' + bank.tnaNoClientes.toFixed(2) + '%'}</div>
         <div><strong>Plazo Máximo:</strong> Hasta ${bank.plazoMaxAnos} años (${bank.plazoMaxMeses} cuotas mensuales)</div>
@@ -519,20 +519,20 @@ export const tabComparador = {
         <div><strong>Tope de Monto:</strong> ${bank.montoMaximoTexto}</div>
       </div>
 
-      <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
-        <div style="font-weight: 600; color: #30d158; margin-bottom: 6px;"><i class="fa-solid fa-briefcase"></i> Requisitos de Antigüedad Laboral</div>
+      <div class="hipo-modal-section">
+        <div class="hipo-modal-section-green"><i class="fa-solid fa-briefcase"></i> Requisitos de Antigüedad Laboral</div>
         <div><strong>Relación de Dependencia:</strong> ${bank.antiguedadDependencia}</div>
         <div><strong>Independientes / Monotributo:</strong> ${bank.antiguedadIndependiente}</div>
       </div>
 
-      <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
-        <div style="font-weight: 600; color: #0a84ff; margin-bottom: 6px;"><i class="fa-solid fa-users"></i> Codeudores y Límites de Edad</div>
+      <div class="hipo-modal-section">
+        <div class="hipo-modal-section-blue"><i class="fa-solid fa-users"></i> Codeudores y Límites de Edad</div>
         <div><strong>Suma de Ingresos:</strong> ${bank.codeudores}</div>
         <div><strong>Edad Límite:</strong> ${bank.edadLimite}</div>
       </div>
 
-      <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
-        <div style="font-weight: 600; color: #bf5af2; margin-bottom: 6px;"><i class="fa-solid fa-house"></i> Destinos y Gastos Asociados</div>
+      <div class="hipo-modal-section">
+        <div class="hipo-modal-section-purple"><i class="fa-solid fa-house"></i> Destinos y Gastos Asociados</div>
         <div><strong>Destinos Permitidos:</strong> ${bank.destinos}</div>
         <div><strong>Seguros y Gastos:</strong> ${bank.segurosYGastos}</div>
       </div>

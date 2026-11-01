@@ -14,6 +14,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- html2canvas CDN para capturas de pantalla -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- CSS Stylesheet -->
@@ -1077,7 +1079,7 @@
                       <h4 style="margin: 0; font-size: 16px;">Simulador Interactivo de Préstamo Hipotecario</h4>
                     </div>
                     <div style="font-size: 12.5px; color: var(--text-secondary); background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 6px;">
-                      Valor UVA de referencia: <strong id="hipoValorUvaLabel" style="color: #ffd60a;">$2.196,12</strong>
+                      Valor UVA de referencia: <strong id="hipoValorUvaLabel" class="hipo-uva-gold">$2.196,12</strong>
                     </div>
                   </div>
 
@@ -1120,11 +1122,11 @@
                   </div>
 
                   <!-- Resultados del Simulador -->
-                  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; padding: 15px; background: rgba(0,0,0,0.25); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                  <div class="hipo-sim-results-card">
                     <div>
                       <span style="font-size: 12px; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Monto del Préstamo</span>
-                      <h4 id="simMontoPrestamo" style="font-size: 18px; color: #fff; margin: 4px 0 2px 0;">$94.200.000</h4>
-                      <span id="simMontoUvas" style="font-size: 11.5px; color: #ffd60a;">~42.893 UVAs (USD 60.000)</span>
+                      <h4 id="simMontoPrestamo" class="hipo-sim-monto">$94.200.000</h4>
+                      <span id="simMontoUvas" class="hipo-uva-gold" style="font-size: 11.5px;">~42.893 UVAs (USD 60.000)</span>
                     </div>
 
                     <div>
@@ -1186,8 +1188,8 @@
                   <div class="main-card" style="max-width: 650px; width: 100%; max-height: 90vh; overflow-y: auto; background: var(--bg-card); border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); padding: 24px;">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px;">
                       <div>
-                        <h3 id="modalHipoBancoNombre" style="margin: 0 0 4px 0; color: #fff; font-size: 18px;">Banco</h3>
-                        <span id="modalHipoLineaNombre" style="font-size: 13px; color: #30d158;">Línea Hipotecaria UVA</span>
+                        <h3 id="modalHipoBancoNombre" class="hipo-modal-title">Banco</h3>
+                        <span id="modalHipoLineaNombre" class="hipo-modal-subtitle">Línea Hipotecaria UVA</span>
                       </div>
                       <button id="btnCloseHipoModal" class="btn btn-sm btn-icon" style="background: rgba(255,255,255,0.08); border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer;" aria-label="Cerrar ventana">
                         <i class="fa-solid fa-xmark"></i>
@@ -1288,13 +1290,18 @@
                     <i class="fa-solid fa-circle-info" style="color: #0a84ff; font-size: 16px;"></i>
                     <span><strong>Modo Demostración Activo:</strong> Se están visualizando datos interactivos con bancos, calificaciones y serie histórica de 24 meses completa. Cuando el servicio en vivo del BCRA reanude su operativa regular, podrá consultar CUITs oficiales en tiempo real.</span>
                   </div>
-                  <div class="deudores-card-header" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                  <div class="deudores-card-header" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); flex-wrap: wrap; gap: 10px;">
                     <div>
                       <h4 id="deudorNombre" class="deudor-title" style="font-size: 18px; font-weight: 700; margin: 0; color: var(--text-main);">-</h4>
                       <p id="deudorCuit" class="deudor-subtitle" style="font-size: 13px; color: var(--text-secondary); margin: 5px 0 0 0;">CUIT: -</p>
                     </div>
-                    <div class="deudor-badge" id="deudorBadgeStatus" style="padding: 6px 12px; border-radius: 6px; font-size: 12.5px; font-weight: 600;">
-                      <span id="deudorBadgeText">-</span>
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                      <button type="button" id="btnCapturarPantallaDeudor" class="btn btn-secondary btn-sm" title="Descargar captura de pantalla con los datos del contribuyente" style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 6px 14px; cursor: pointer; border-radius: 6px; font-weight: 600;">
+                        <i class="fa-solid fa-camera"></i> Capturar Pantalla
+                      </button>
+                      <div class="deudor-badge" id="deudorBadgeStatus" style="padding: 6px 12px; border-radius: 6px; font-size: 12.5px; font-weight: 600;">
+                        <span id="deudorBadgeText">-</span>
+                      </div>
                     </div>
                   </div>
 
@@ -1357,6 +1364,12 @@
                         <p style="font-size: 12.5px; color: var(--text-secondary); margin: 4px 0 0 0;">
                           Evolución mensual de la deuda y calificación de riesgo registrada en la Central de Deudores del BCRA.
                         </p>
+                        <!-- Indicadores MAX, MIN y PROMEDIO -->
+                        <div class="chart-stats-badges" id="deudorChartStats">
+                          <span class="stat-pill stat-pill-max" id="pillMaxDeuda"><i class="fa-solid fa-arrow-up"></i> MÁX: $0</span>
+                          <span class="stat-pill stat-pill-min" id="pillMinDeuda"><i class="fa-solid fa-arrow-down"></i> MÍN: $0</span>
+                          <span class="stat-pill stat-pill-avg" id="pillAvgDeuda"><i class="fa-solid fa-ellipsis"></i> PROMEDIO: $0</span>
+                        </div>
                       </div>
                       <div style="display: flex; gap: 8px;">
                         <button type="button" id="btnToggleHistoricoTable" class="btn btn-secondary btn-sm" style="font-size: 12px; padding: 6px 14px; cursor: pointer;">
