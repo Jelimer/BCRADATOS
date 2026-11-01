@@ -118,6 +118,16 @@ export async function fetchDolarBlueHistorical() {
   return await parseJsonResponse(res, 'Error al consultar histórico de Dólar Blue');
 }
 
+export async function fetchDolarMepHistorical() {
+  const res = await fetchWithTimeout('/api/argentinadatos/cotizaciones/dolares/bolsa', { timeout: 10000 });
+  return await parseJsonResponse(res, 'Error al consultar histórico de Dólar MEP');
+}
+
+export async function fetchDolarOficialHistorical() {
+  const res = await fetchWithTimeout('/api/argentinadatos/cotizaciones/dolares/oficial', { timeout: 10000 });
+  return await parseJsonResponse(res, 'Error al consultar histórico de Dólar Oficial');
+}
+
 // ==========================================
 // 4. ENDPOINTS BYMA
 // ==========================================
@@ -162,6 +172,11 @@ export async function fetchComisiones() {
 export async function fetchPrestamos() {
   const res = await fetchWithTimeout('/api/bcra-transparencia/Prestamos/Personales', { timeout: 15000 });
   return await parseJsonResponse(res, 'Error al consultar préstamos en BCRA');
+}
+
+export async function fetchHipotecarios() {
+  const res = await fetchWithTimeout('/api/transparencia/hipotecarios', { timeout: 10000 });
+  return await parseJsonResponse(res, 'Error al consultar préstamos hipotecarios UVA');
 }
 
 // ==========================================

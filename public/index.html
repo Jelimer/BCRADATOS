@@ -891,6 +891,9 @@
                   <button class="range-btn" id="btnShowCuentasRemuneradas">
                     <i class="fa-solid fa-mobile-screen-button"></i> Billeteras & Cuentas Remuneradas
                   </button>
+                  <button class="range-btn" id="btnShowHipotecarios">
+                    <i class="fa-solid fa-house-chimney-dollar"></i> Préstamos Hipotecarios UVA
+                  </button>
                 </div>
                 
                 <div class="search-box" style="max-width: 300px; width: 100%; margin-left: auto;">
@@ -1001,6 +1004,198 @@
                     </tbody>
                   </table>
                 </div>
+              </div>
+
+              <!-- Vista Préstamos Hipotecarios UVA -->
+              <div class="comparador-subview hidden" id="subviewHipotecarios">
+                <div class="info-card-header" style="margin-bottom: 15px;">
+                  <i class="fa-solid fa-house-chimney-dollar info-icon" style="color: #30d158;"></i>
+                  <div>
+                    <h3 style="margin: 0;">Comparador y Simulador de Préstamos Hipotecarios UVA</h3>
+                    <p style="color: var(--text-secondary); margin: 5px 0 0 0; font-size: 13.5px;">
+                      Líneas de crédito hipotecario indexadas por Unidad de Valor Adquisitivo (UVA) de los principales bancos de Argentina. Tasas clientes (cuenta sueldo) vs. no clientes, montos máximos, plazos hasta 30 años y requisitos de acceso.
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Tarjetas KPI de Referencia Hipotecaria -->
+                <div class="kpi-row" style="margin-bottom: 25px;">
+                  <div class="kpi-card card-dolar-glow">
+                    <div class="kpi-icon-wrapper" style="background: rgba(48, 209, 88, 0.15); color: #30d158;">
+                      <i class="fa-solid fa-arrow-trend-down"></i>
+                    </div>
+                    <div class="kpi-info">
+                      <span class="kpi-label">Tasa Mínima Clientes</span>
+                      <h4 class="kpi-value">UVA + 3.50%</h4>
+                      <span class="kpi-subtext">Banco Ciudad (Zona Sur CABA)</span>
+                    </div>
+                  </div>
+
+                  <div class="kpi-card card-dolar-glow">
+                    <div class="kpi-icon-wrapper" style="background: rgba(10, 132, 255, 0.15); color: #0a84ff;">
+                      <i class="fa-solid fa-calendar-check"></i>
+                    </div>
+                    <div class="kpi-info">
+                      <span class="kpi-label">Plazo Máximo</span>
+                      <h4 class="kpi-value">Hasta 30 Años</h4>
+                      <span class="kpi-subtext">BNA, Santander, Galicia, Hipotecario</span>
+                    </div>
+                  </div>
+
+                  <div class="kpi-card card-dolar-glow">
+                    <div class="kpi-icon-wrapper" style="background: rgba(255, 214, 10, 0.15); color: #ffd60a;">
+                      <i class="fa-solid fa-percent"></i>
+                    </div>
+                    <div class="kpi-info">
+                      <span class="kpi-label">Financiación Máxima (LTV)</span>
+                      <h4 class="kpi-value">75% - 80%</h4>
+                      <span class="kpi-subtext">Hasta 100% en Bancor c/caución</span>
+                    </div>
+                  </div>
+
+                  <div class="kpi-card card-dolar-glow">
+                    <div class="kpi-icon-wrapper" style="background: rgba(191, 90, 242, 0.15); color: #bf5af2;">
+                      <i class="fa-solid fa-scale-balanced"></i>
+                    </div>
+                    <div class="kpi-info">
+                      <span class="kpi-label">Afectación de Ingresos</span>
+                      <h4 class="kpi-value">25% Máx</h4>
+                      <span class="kpi-subtext">Hasta 30% en Credicoop / Macro</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- SECCIÓN 1: SIMULADOR INTERACTIVO DE PRÉSTAMO HIPOTECARIO -->
+                <div class="main-card" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 20px; margin-bottom: 25px;">
+                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                      <i class="fa-solid fa-calculator" style="color: #30d158; font-size: 18px;"></i>
+                      <h4 style="margin: 0; font-size: 16px;">Simulador Interactivo de Préstamo Hipotecario</h4>
+                    </div>
+                    <div style="font-size: 12.5px; color: var(--text-secondary); background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 6px;">
+                      Valor UVA de referencia: <strong id="hipoValorUvaLabel" style="color: #ffd60a;">$2.196,12</strong>
+                    </div>
+                  </div>
+
+                  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin-bottom: 20px;">
+                    <div>
+                      <label for="hipoValorPropiedad" style="font-size: 13px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Valor de la Propiedad (USD)</label>
+                      <input type="number" id="hipoValorPropiedad" value="80000" min="10000" max="2000000" step="5000" class="large-input" style="width: 100%; height: 40px; background: var(--bg-card); color: var(--text-main); border: 1px solid rgba(255,255,255,0.15); padding: 0 12px; border-radius: 6px; font-size: 14.5px;">
+                      <span id="hipoValorPesosSubtext" style="font-size: 11.5px; color: var(--text-secondary); display: block; margin-top: 4px;">Aprox. $125.600.000 (Dólar MEP)</span>
+                    </div>
+
+                    <div>
+                      <label for="hipoLtvSelect" style="font-size: 13px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Porcentaje a Financiar (LTV)</label>
+                      <select id="hipoLtvSelect" style="width: 100%; height: 40px; background: var(--bg-card); color: var(--text-main); border: 1px solid rgba(255,255,255,0.15); padding: 0 12px; border-radius: 6px; font-size: 14px;">
+                        <option value="80">80% (Estándar primera vivienda)</option>
+                        <option value="75" selected>75% (BNA, Santander, Macro)</option>
+                        <option value="70">70% (Credicoop)</option>
+                        <option value="50">50% (Segunda vivienda / menor cuota)</option>
+                        <option value="100">100% (Línea especial Bancor)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label for="hipoPlazoSelect" style="font-size: 13px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Plazo del Crédito</label>
+                      <select id="hipoPlazoSelect" style="width: 100%; height: 40px; background: var(--bg-card); color: var(--text-main); border: 1px solid rgba(255,255,255,0.15); padding: 0 12px; border-radius: 6px; font-size: 14px;">
+                        <option value="30">30 Años (360 meses) - Cuota inicial más baja</option>
+                        <option value="25">25 Años (300 meses)</option>
+                        <option value="20" selected>20 Años (240 meses) - Plazo estándar</option>
+                        <option value="15">15 Años (180 meses)</option>
+                        <option value="10">10 Años (120 meses)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label for="hipoCondicionSelect" style="font-size: 13px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Condición del Solicitante</label>
+                      <select id="hipoCondicionSelect" style="width: 100%; height: 40px; background: var(--bg-card); color: var(--text-main); border: 1px solid rgba(255,255,255,0.15); padding: 0 12px; border-radius: 6px; font-size: 14px;">
+                        <option value="cliente" selected>Cliente con cuenta sueldo (Tasa bonificada)</option>
+                        <option value="no_cliente">No Cliente / Mercado abierto</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <!-- Resultados del Simulador -->
+                  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; padding: 15px; background: rgba(0,0,0,0.25); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                    <div>
+                      <span style="font-size: 12px; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Monto del Préstamo</span>
+                      <h4 id="simMontoPrestamo" style="font-size: 18px; color: #fff; margin: 4px 0 2px 0;">$94.200.000</h4>
+                      <span id="simMontoUvas" style="font-size: 11.5px; color: #ffd60a;">~42.893 UVAs (USD 60.000)</span>
+                    </div>
+
+                    <div>
+                      <span style="font-size: 12px; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Ahorro Previo (Anticipo)</span>
+                      <h4 id="simAnticipo" style="font-size: 18px; color: #0a84ff; margin: 4px 0 2px 0;">$31.400.000</h4>
+                      <span id="simAnticipoUsd" style="font-size: 11.5px; color: var(--text-secondary);">USD 20.000 (25%)</span>
+                    </div>
+
+                    <div>
+                      <span style="font-size: 12px; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Cuota Inicial Estimada</span>
+                      <h4 id="simCuotaInicial" style="font-size: 18px; color: #30d158; margin: 4px 0 2px 0;">$648.500 / mes</h4>
+                      <span id="simCuotaUvas" style="font-size: 11.5px; color: var(--text-secondary);">~295 UVAs (TNA ref. 5.50%)</span>
+                    </div>
+
+                    <div>
+                      <span style="font-size: 12px; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Ingreso Familiar Requerido</span>
+                      <h4 id="simIngresoRequerido" style="font-size: 18px; color: #ff9f0a; margin: 4px 0 2px 0;">$2.594.000 / mes</h4>
+                      <span style="font-size: 11.5px; color: var(--text-secondary);">Relación cuota/ingreso del 25%</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- SECCIÓN 2: TABLA COMPARATIVA DE BANCOS -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                  <div>
+                    <h4 style="margin: 0; font-size: 15px;">Oferta de Líneas Hipotecarias por Entidad</h4>
+                    <span style="font-size: 12.5px; color: var(--text-secondary);">10 bancos con líneas UVA activas comparadas en tiempo real</span>
+                  </div>
+                  <div class="quick-ranges" style="display: flex; gap: 6px; flex-wrap: wrap;" id="hipoTableFilters">
+                    <button class="range-btn active" id="btnHipoFiltroTodos" data-filter="todos">Todos</button>
+                    <button class="range-btn" id="btnHipoFiltro30Anos" data-filter="30">Hasta 30 Años</button>
+                    <button class="range-btn" id="btnHipoFiltro80Ltv" data-filter="80">Financiación 80%+</button>
+                  </div>
+                </div>
+
+                <div class="table-wrapper">
+                  <table class="data-table" id="hipotecariosTable">
+                    <thead>
+                      <tr>
+                        <th scope="col">Banco / Entidad</th>
+                        <th scope="col" class="text-right">Tasa Clientes</th>
+                        <th scope="col" class="text-right">Tasa No Clientes</th>
+                        <th scope="col" class="text-right">Plazo Máx</th>
+                        <th scope="col" class="text-right">Financiación (LTV)</th>
+                        <th scope="col" class="text-right">Monto Máximo</th>
+                        <th scope="col" class="text-right">Cuota/Ingreso</th>
+                        <th scope="col" class="text-right">Cuota Sim. ($)</th>
+                        <th scope="col" class="text-center">Requisitos</th>
+                      </tr>
+                    </thead>
+                    <tbody id="hipotecariosTableBody">
+                      <!-- Datos dinámicos -->
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Modal de Requisitos Detallados -->
+                <div id="hipoRequisitosModal" class="hidden" style="position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); z-index: 1050; display: flex; align-items: center; justify-content: center; padding: 20px;">
+                  <div class="main-card" style="max-width: 650px; width: 100%; max-height: 90vh; overflow-y: auto; background: var(--bg-card); border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); padding: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px;">
+                      <div>
+                        <h3 id="modalHipoBancoNombre" style="margin: 0 0 4px 0; color: #fff; font-size: 18px;">Banco</h3>
+                        <span id="modalHipoLineaNombre" style="font-size: 13px; color: #30d158;">Línea Hipotecaria UVA</span>
+                      </div>
+                      <button id="btnCloseHipoModal" class="btn btn-sm btn-icon" style="background: rgba(255,255,255,0.08); border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer;" aria-label="Cerrar ventana">
+                        <i class="fa-solid fa-xmark"></i>
+                      </button>
+                    </div>
+
+                    <div id="modalHipoDetallesContent" style="display: flex; flex-direction: column; gap: 14px; font-size: 13.5px; color: var(--text-main);">
+                      <!-- Contenido dinámico del banco -->
+                    </div>
+                  </div>
+                </div>
+
               </div>
             </div>
           </div>

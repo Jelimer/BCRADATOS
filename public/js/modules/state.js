@@ -190,11 +190,12 @@ export const appState = {
 
   // Módulo COMPARADOR BANCARIO
   comparador: {
-    activeTab: 'plazosFijos', // 'plazosFijos', 'comisiones', 'prestamos', 'cuentasRemuneradas'
+    activeTab: 'plazosFijos', // 'plazosFijos', 'comisiones', 'prestamos', 'cuentasRemuneradas', 'hipotecarios'
     plazosFijos: [],
     comisiones: [],
     prestamos: [],
-    cuentasRemuneradas: []
+    cuentasRemuneradas: [],
+    hipotecarios: []
   },
 
   // Módulo CONSULTAS (Deudores y Cheques)

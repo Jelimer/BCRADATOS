@@ -6,7 +6,7 @@
  * gráfico reactivo multivariable, tabla paginada y exportación a CSV.
  */
 
-import { fetchMercadoLive, fetchDolarBlueLive, fetchDivisasCambiarias, fetchBcraHistorical, fetchBymaHistorical, fetchDolarBlueHistorical } from './api.js';
+import { fetchMercadoLive, fetchDolarBlueLive, fetchDivisasCambiarias, fetchBcraHistorical, fetchBymaHistorical, fetchDolarBlueHistorical, fetchDolarMepHistorical, fetchDolarOficialHistorical } from './api.js';
 import { clientCache, appState } from './state.js';
 import { formatValue, formatDate, downloadBlob } from './utils.js';
 import { maxMinLabelPlugin, registerChart, downloadChartPNG } from './charts.js';
@@ -93,14 +93,29 @@ export const tabDolares = {
       this.renderLiveCards();
       tabCripto.updateDolarCriptoCard();
 
-      const dates = appState.dolares.historical.mep.map(d => d.date);
-      if (dates.length > 0) {
-        document.getElementById('dolaresStartDate').value = dates[0];
-        document.getElementById('dolaresEndDate').value = dates[dates.length - 1];
-        document.getElementById('dolaresStartDate').min = dates[0];
-        document.getElementById('dolaresStartDate').max = dates[dates.length - 1];
-        document.getElementById('dolaresEndDate').min = dates[0];
-        document.getElementById('dolaresEndDate').max = dates[dates.length - 1];
+      const allAvailableDates = Array.from(new Set([
+        ...(appState.dolares.historical.mep || []).map(d => d.date),
+        ...(appState.dolares.historical.oficial || []).map(d => d.date),
+        ...(appState.dolares.historical.blue || []).map(d => d.date)
+      ])).sort();
+
+      if (allAvailableDates.length > 0) {
+        const startInput = document.getElementById('dolaresStartDate');
+        const endInput = document.getElementById('dolaresEndDate');
+        if (startInput && endInput) {
+          startInput.min = allAvailableDates[0];
+          startInput.max = allAvailableDates[allAvailableDates.length - 1];
+          endInput.min = allAvailableDates[0];
+          endInput.max = allAvailableDates[allAvailableDates.length - 1];
+
+          const daysCount = typeof appState.dolares.days === 'number' ? appState.dolares.days : 90;
+          const tDate = new Date();
+          tDate.setDate(tDate.getDate() - daysCount);
+          const tStr = tDate.toISOString().split('T')[0];
+          const validStart = allAvailableDates.find(d => d >= tStr) || allAvailableDates[0];
+          startInput.value = validStart;
+          endInput.value = allAvailableDates[allAvailableDates.length - 1];
+        }
       }
       this.renderChart();
       return;
@@ -192,34 +207,71 @@ export const tabDolares = {
       // 3. Obtener Históricos
       const to = Math.floor(Date.now() / 1000);
       const from = to - (365 * 24 * 60 * 60);
-      const [oficialHist, al30Hist, al30dHist, blueHist] = await Promise.all([
+      const [oficialHistBcra, al30Hist, al30dHist, blueHist, mepHistArg, oficialHistArg] = await Promise.all([
         fetchBcraHistorical(4).catch(() => []),
         fetchBymaHistorical('AL30 24HS', from, to).catch(() => ({})),
         fetchBymaHistorical('AL30D 24HS', from, to).catch(() => ({})),
-        fetchDolarBlueHistorical().catch(() => [])
+        fetchDolarBlueHistorical().catch(() => []),
+        fetchDolarMepHistorical().catch(() => []),
+        fetchDolarOficialHistorical().catch(() => [])
       ]);
 
-      const parsedOficial = Array.isArray(oficialHist) ? oficialHist : [];
-
-      const parsedMep = [];
-      if (al30Hist && al30Hist.t && al30dHist && al30dHist.t) {
-        const al30dMap = {};
-        al30dHist.t.forEach((ts, idx) => {
-          al30dMap[ts] = al30dHist.c[idx];
-        });
-
-        al30Hist.t.forEach((ts, idx) => {
-          const pes = al30Hist.c[idx];
-          const usd = al30dMap[ts];
-          if (pes && usd && usd > 0) {
-            const dateStr = new Date(ts * 1000).toISOString().split('T')[0];
-            parsedMep.push({
-              date: dateStr,
-              value: pes / usd
-            });
+      // Consolidar Dólar Oficial histórico desde ArgentinaDatos y BCRA
+      const oficialDateMap = new Map();
+      if (Array.isArray(oficialHistArg)) {
+        oficialHistArg.forEach(item => {
+          const val = parseFloat(item.venta || item.compra || item.valor || 0);
+          if (item.fecha && !isNaN(val) && val > 0) {
+            oficialDateMap.set(item.fecha, val);
           }
         });
       }
+      if (Array.isArray(oficialHistBcra)) {
+        oficialHistBcra.forEach(item => {
+          if (item.date && item.value > 0) {
+            oficialDateMap.set(item.date, item.value);
+          }
+        });
+      }
+      const parsedOficial = [];
+      oficialDateMap.forEach((value, date) => {
+        parsedOficial.push({ date, value });
+      });
+
+      // Consolidar Dólar MEP histórico desde ArgentinaDatos y enriquecer con BYMA
+      const mepDateMap = new Map();
+      if (Array.isArray(mepHistArg)) {
+        mepHistArg.forEach(item => {
+          const val = parseFloat(item.venta || item.compra || item.valor || 0);
+          if (item.fecha && !isNaN(val) && val > 0) {
+            mepDateMap.set(item.fecha, val);
+          }
+        });
+      }
+
+      // Emparejar bonos BYMA por fecha ISO (YYYY-MM-DD) para máxima resiliencia
+      if (al30Hist && al30Hist.t && al30dHist && al30dHist.t) {
+        const al30dByDate = new Map();
+        al30dHist.t.forEach((ts, idx) => {
+          const dStr = new Date(ts * 1000).toISOString().split('T')[0];
+          const val = al30dHist.c[idx];
+          if (val && val > 0) al30dByDate.set(dStr, val);
+        });
+
+        al30Hist.t.forEach((ts, idx) => {
+          const dStr = new Date(ts * 1000).toISOString().split('T')[0];
+          const pes = al30Hist.c[idx];
+          const usd = al30dByDate.get(dStr);
+          if (pes && usd && usd > 0) {
+            mepDateMap.set(dStr, pes / usd);
+          }
+        });
+      }
+
+      const parsedMep = [];
+      mepDateMap.forEach((value, date) => {
+        parsedMep.push({ date, value });
+      });
 
       const parsedBlue = [];
       const rawBlue = Array.isArray(blueHist) ? blueHist : [];
@@ -241,14 +293,30 @@ export const tabDolares = {
 
       clientCache.set('dolares_market_data', { live: appState.dolares.live, historical: appState.dolares.historical }, 60 * 1000);
 
-      const dates = appState.dolares.historical.mep.map(d => d.date);
-      if (dates.length > 0) {
-        document.getElementById('dolaresStartDate').value = dates[0];
-        document.getElementById('dolaresEndDate').value = dates[dates.length - 1];
-        document.getElementById('dolaresStartDate').min = dates[0];
-        document.getElementById('dolaresStartDate').max = dates[dates.length - 1];
-        document.getElementById('dolaresEndDate').min = dates[0];
-        document.getElementById('dolaresEndDate').max = dates[dates.length - 1];
+      const allAvailableDates = Array.from(new Set([
+        ...appState.dolares.historical.mep.map(d => d.date),
+        ...appState.dolares.historical.oficial.map(d => d.date),
+        ...appState.dolares.historical.blue.map(d => d.date)
+      ])).sort();
+
+      if (allAvailableDates.length > 0) {
+        const startInput = document.getElementById('dolaresStartDate');
+        const endInput = document.getElementById('dolaresEndDate');
+        if (startInput && endInput) {
+          startInput.min = allAvailableDates[0];
+          startInput.max = allAvailableDates[allAvailableDates.length - 1];
+          endInput.min = allAvailableDates[0];
+          endInput.max = allAvailableDates[allAvailableDates.length - 1];
+
+          // Configurar fechas iniciales acordes al filtro activo
+          const daysCount = typeof appState.dolares.days === 'number' ? appState.dolares.days : 90;
+          const tDate = new Date();
+          tDate.setDate(tDate.getDate() - daysCount);
+          const tStr = tDate.toISOString().split('T')[0];
+          const validStart = allAvailableDates.find(d => d >= tStr) || allAvailableDates[0];
+          startInput.value = validStart;
+          endInput.value = allAvailableDates[allAvailableDates.length - 1];
+        }
       }
 
       this.renderChart();
@@ -338,41 +406,59 @@ export const tabDolares = {
     const textColor = isDark ? '#94a3b8' : '#64748b';
     const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
 
-    const mepData = appState.dolares.historical.mep;
-    const oficialData = appState.dolares.historical.oficial;
+    const mepData = appState.dolares.historical.mep || [];
+    const oficialData = appState.dolares.historical.oficial || [];
     const blueData = appState.dolares.historical.blue || [];
 
-    if (mepData.length === 0 || oficialData.length === 0) return;
+    const allDatesSet = new Set();
+    mepData.forEach(d => allDatesSet.add(d.date));
+    oficialData.forEach(d => allDatesSet.add(d.date));
+    blueData.forEach(d => allDatesSet.add(d.date));
+    const allChronologicalDates = Array.from(allDatesSet).sort();
 
-    let filteredMep = [...mepData];
+    if (allChronologicalDates.length === 0) {
+      this.renderTable([], new Map(), new Map(), new Map());
+      return;
+    }
+
+    let startStr = document.getElementById('dolaresStartDate')?.value;
+    let endStr = document.getElementById('dolaresEndDate')?.value;
+
     if (appState.dolares.days !== 'all' && appState.dolares.days !== 'manual') {
       const targetDate = new Date();
       targetDate.setDate(targetDate.getDate() - appState.dolares.days);
       const targetStr = targetDate.toISOString().split('T')[0];
-      filteredMep = mepData.filter(d => d.date >= targetStr);
-      if (filteredMep.length > 0) {
-        document.getElementById('dolaresStartDate').value = filteredMep[0].date;
-        document.getElementById('dolaresEndDate').value = filteredMep[filteredMep.length - 1].date;
-      }
+      startStr = allChronologicalDates.find(d => d >= targetStr) || allChronologicalDates[0];
+      endStr = allChronologicalDates[allChronologicalDates.length - 1];
+      const startEl = document.getElementById('dolaresStartDate');
+      const endEl = document.getElementById('dolaresEndDate');
+      if (startEl) startEl.value = startStr;
+      if (endEl) endEl.value = endStr;
     } else if (appState.dolares.days === 'all') {
-      if (mepData.length > 0) {
-        document.getElementById('dolaresStartDate').value = mepData[0].date;
-        document.getElementById('dolaresEndDate').value = mepData[mepData.length - 1].date;
-      }
-    } else if (appState.dolares.days === 'manual') {
-      const startStr = document.getElementById('dolaresStartDate').value;
-      const endStr = document.getElementById('dolaresEndDate').value;
-      filteredMep = mepData.filter(d => d.date >= startStr && d.date <= endStr);
+      startStr = allChronologicalDates[0];
+      endStr = allChronologicalDates[allChronologicalDates.length - 1];
+      const startEl = document.getElementById('dolaresStartDate');
+      const endEl = document.getElementById('dolaresEndDate');
+      if (startEl) startEl.value = startStr;
+      if (endEl) endEl.value = endStr;
     }
 
-    const dates = filteredMep.map(d => d.date);
-    const oficialMap = {};
-    oficialData.forEach(d => { oficialMap[d.date] = d.value; });
+    const dates = allChronologicalDates.filter(d => {
+      if (startStr && d < startStr) return false;
+      if (endStr && d > endStr) return false;
+      return true;
+    });
 
-    const blueMap = {};
-    blueData.forEach(d => { blueMap[d.date] = { compra: d.compra, venta: d.venta }; });
+    const mepMap = new Map();
+    mepData.forEach(d => mepMap.set(d.date, d.value));
 
-    this.renderTable(dates, filteredMep, oficialMap, blueMap);
+    const oficialMap = new Map();
+    oficialData.forEach(d => oficialMap.set(d.date, d.value));
+
+    const blueMap = new Map();
+    blueData.forEach(d => blueMap.set(d.date, { compra: d.compra, venta: d.venta }));
+
+    this.renderTable(dates, mepMap, oficialMap, blueMap);
 
     const labels = dates.map(d => formatDate(d));
     let datasets = [];
@@ -383,10 +469,10 @@ export const tabDolares = {
     const showBlueVenta = document.getElementById('chkBlueVenta')?.checked ?? true;
 
     if (appState.dolares.activeView === 'prices') {
-      const mepPrices = filteredMep.map(d => d.value);
-      const oficialPrices = dates.map(d => oficialMap[d] || null);
-      const blueCompraPrices = dates.map(d => blueMap[d] ? blueMap[d].compra : null);
-      const blueVentaPrices = dates.map(d => blueMap[d] ? blueMap[d].venta : null);
+      const mepPrices = dates.map(d => mepMap.has(d) ? mepMap.get(d) : null);
+      const oficialPrices = dates.map(d => oficialMap.has(d) ? oficialMap.get(d) : null);
+      const blueCompraPrices = dates.map(d => blueMap.has(d) ? blueMap.get(d).compra : null);
+      const blueVentaPrices = dates.map(d => blueMap.has(d) ? blueMap.get(d).venta : null);
 
       let maxIdxM = -1, minIdxM = -1, maxValM = -Infinity, minValM = Infinity;
       mepPrices.forEach((val, idx) => {
@@ -406,7 +492,7 @@ export const tabDolares = {
           if (val < minValO) { minValO = val; minIdxO = idx; }
         }
       });
-      const pointRadiiO = oficialPrices.map((val, idx) => (idx === maxIdxO || idx === minIdxO) ? 7 : (mepPrices.length > 80 ? 0 : 3));
+      const pointRadiiO = oficialPrices.map((val, idx) => (idx === maxIdxO || idx === minIdxO) ? 7 : (oficialPrices.length > 80 ? 0 : 3));
       const pointBgColorsO = oficialPrices.map((val, idx) => (idx === maxIdxO || idx === minIdxO) ? '#ffd60a' : '#ffffff');
       const pointHoverRadiiO = oficialPrices.map((val, idx) => (idx === maxIdxO || idx === minIdxO) ? 9 : 5);
 
@@ -441,6 +527,7 @@ export const tabDolares = {
           fill: true,
           tension: 0.1,
           borderWidth: 2.5,
+          spanGaps: true,
           pointRadius: pointRadiiM,
           pointBackgroundColor: pointBgColorsM,
           pointBorderColor: '#ffffff',
@@ -461,6 +548,7 @@ export const tabDolares = {
           fill: false,
           tension: 0.1,
           borderWidth: 2,
+          spanGaps: true,
           pointRadius: pointRadiiO,
           pointBackgroundColor: pointBgColorsO,
           pointBorderColor: '#ffffff',
@@ -481,6 +569,7 @@ export const tabDolares = {
           fill: false,
           tension: 0.1,
           borderWidth: 2,
+          spanGaps: true,
           pointRadius: pointRadiiBC,
           pointBackgroundColor: pointBgColorsBC,
           pointBorderColor: '#ffffff',
@@ -501,6 +590,7 @@ export const tabDolares = {
           fill: true,
           tension: 0.1,
           borderWidth: 2.5,
+          spanGaps: true,
           pointRadius: pointRadiiBV,
           pointBackgroundColor: pointBgColorsBV,
           pointBorderColor: '#ffffff',
@@ -512,10 +602,11 @@ export const tabDolares = {
         });
       }
     } else {
-      const brechaData = filteredMep.map(d => {
-        const oficialPrice = oficialMap[d.date];
-        if (oficialPrice > 0) {
-          return ((d.value - oficialPrice) / oficialPrice) * 100;
+      const brechaData = dates.map(d => {
+        const mepVal = mepMap.get(d);
+        const oficialPrice = oficialMap.get(d);
+        if (mepVal > 0 && oficialPrice > 0) {
+          return ((mepVal - oficialPrice) / oficialPrice) * 100;
         }
         return null;
       });
@@ -541,6 +632,7 @@ export const tabDolares = {
           fill: true,
           tension: 0.1,
           borderWidth: 2,
+          spanGaps: true,
           pointRadius: pointRadii,
           pointBackgroundColor: pointBgColors,
           pointBorderColor: '#ffffff',
@@ -602,15 +694,10 @@ export const tabDolares = {
     this.renderTable();
   },
 
-  renderTable(dates, filteredMep, oficialMap, blueMap) {
-    if (!dates || !filteredMep || !oficialMap || !blueMap) {
-      dates = appState.dolares.currentDates || [];
-      filteredMep = appState.dolares.currentMep || [];
-      oficialMap = appState.dolares.currentOficialMap || {};
-      blueMap = appState.dolares.currentBlueMap || {};
-    } else {
+  renderTable(dates, mepMap, oficialMap, blueMap) {
+    if (dates && mepMap && oficialMap && blueMap) {
       appState.dolares.currentDates = dates;
-      appState.dolares.currentMep = filteredMep;
+      appState.dolares.currentMepMap = mepMap;
       appState.dolares.currentOficialMap = oficialMap;
       appState.dolares.currentBlueMap = blueMap;
     }
@@ -623,15 +710,20 @@ export const tabDolares = {
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    if (dates.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="text-center">No hay registros para mostrar.</td></tr>';
+    const currentDates = appState.dolares.currentDates || [];
+    const currentMepMap = appState.dolares.currentMepMap || new Map();
+    const currentOficialMap = appState.dolares.currentOficialMap || new Map();
+    const currentBlueMap = appState.dolares.currentBlueMap || new Map();
+
+    if (currentDates.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center">No hay registros para mostrar en el período seleccionado.</td></tr>';
       if (paginationInfo) paginationInfo.textContent = 'Mostrando 0-0 de 0 registros';
       if (btnPrev) btnPrev.disabled = true;
       if (btnNext) btnNext.disabled = true;
       return;
     }
 
-    const total = dates.length;
+    const total = currentDates.length;
     const pageSize = appState.dolares.tablePageSize;
     const totalPages = Math.ceil(total / pageSize);
 
@@ -641,34 +733,30 @@ export const tabDolares = {
     const startIndex = (appState.dolares.tablePage - 1) * pageSize;
     const endIndex = Math.min(startIndex + pageSize, total);
 
-    // Extraer directamente las fechas de la página en orden cronológico descendente sin invertir el array completo
     const pageDates = [];
     for (let i = startIndex; i < endIndex; i++) {
-      pageDates.push(dates[total - 1 - i]);
+      pageDates.push(currentDates[total - 1 - i]);
     }
 
-    const fullMep = appState.dolares.historical.mep;
-    const fullOficial = appState.dolares.historical.oficial;
+    const fullMep = appState.dolares.historical.mep || [];
+    const fullOficial = appState.dolares.historical.oficial || [];
 
     const mepIndexMap = new Map();
     fullMep.forEach((d, idx) => mepIndexMap.set(d.date, idx));
     const oficialIndexMap = new Map();
     fullOficial.forEach((d, idx) => oficialIndexMap.set(d.date, idx));
-    const filteredMepMap = new Map();
-    filteredMep.forEach(d => filteredMepMap.set(d.date, d.value));
 
     const fragment = document.createDocumentFragment();
     pageDates.forEach(date => {
-      const mepVal = filteredMepMap.get(date) || null;
-      const oficialVal = oficialMap[date] || null;
-
-      const blueItem = blueMap[date] || null;
+      const mepVal = currentMepMap instanceof Map ? currentMepMap.get(date) : currentMepMap[date] || null;
+      const oficialVal = currentOficialMap instanceof Map ? currentOficialMap.get(date) : currentOficialMap[date] || null;
+      const blueItem = currentBlueMap instanceof Map ? currentBlueMap.get(date) : currentBlueMap[date] || null;
       const blueCompraVal = blueItem ? blueItem.compra : null;
       const blueVentaVal = blueItem ? blueItem.venta : null;
 
       let mepVarText = '-';
       let mepVarClass = '';
-      if (mepVal !== null) {
+      if (mepVal !== null && mepVal !== undefined) {
         const fullIdx = mepIndexMap.get(date);
         if (fullIdx !== undefined && fullIdx > 0) {
           const prevVal = fullMep[fullIdx - 1].value;
@@ -681,7 +769,7 @@ export const tabDolares = {
 
       let oficialVarText = '-';
       let oficialVarClass = '';
-      if (oficialVal !== null) {
+      if (oficialVal !== null && oficialVal !== undefined) {
         const fullIdx = oficialIndexMap.get(date);
         if (fullIdx !== undefined && fullIdx > 0) {
           const prevVal = fullOficial[fullIdx - 1].value;
@@ -693,13 +781,13 @@ export const tabDolares = {
       }
 
       let brechaMepText = '-';
-      if (mepVal !== null && oficialVal > 0) {
+      if (mepVal && oficialVal && oficialVal > 0) {
         const brechaVal = ((mepVal - oficialVal) / oficialVal) * 100;
         brechaMepText = `${brechaVal.toFixed(2)}%`;
       }
 
       let brechaBlueText = '-';
-      if (blueVentaVal !== null && oficialVal > 0) {
+      if (blueVentaVal && oficialVal && oficialVal > 0) {
         const brechaVal = ((blueVentaVal - oficialVal) / oficialVal) * 100;
         brechaBlueText = `${brechaVal.toFixed(2)}%`;
       }
@@ -726,9 +814,9 @@ export const tabDolares = {
 
   exportToCsv() {
     const dates = appState.dolares.currentDates || [];
-    const filteredMep = appState.dolares.currentMep || [];
-    const oficialMap = appState.dolares.currentOficialMap || {};
-    const blueMap = appState.dolares.currentBlueMap || {};
+    const currentMepMap = appState.dolares.currentMepMap || new Map();
+    const currentOficialMap = appState.dolares.currentOficialMap || new Map();
+    const currentBlueMap = appState.dolares.currentBlueMap || new Map();
 
     if (dates.length === 0) {
       showToast('No hay datos para exportar.', 'warning');
@@ -745,14 +833,12 @@ export const tabDolares = {
       return;
     }
 
-    const fullMep = appState.dolares.historical.mep;
-    const fullOficial = appState.dolares.historical.oficial;
+    const fullMep = appState.dolares.historical.mep || [];
+    const fullOficial = appState.dolares.historical.oficial || [];
     const mepIndexMap = new Map();
     fullMep.forEach((d, idx) => mepIndexMap.set(d.date, idx));
     const oficialIndexMap = new Map();
     fullOficial.forEach((d, idx) => oficialIndexMap.set(d.date, idx));
-    const filteredMepMap = new Map();
-    filteredMep.forEach(d => filteredMepMap.set(d.date, d.value));
 
     let csvHeader = "Fecha";
     if (showMep) csvHeader += ";Dolar MEP;Variacion MEP %;Brecha MEP %";
@@ -767,10 +853,10 @@ export const tabDolares = {
       let row = formatDate(date);
 
       if (showMep) {
-        const mepVal = filteredMepMap.get(date) || null;
-        const oficialVal = oficialMap[date] || null;
+        const mepVal = currentMepMap instanceof Map ? currentMepMap.get(date) : currentMepMap[date] || null;
+        const oficialVal = currentOficialMap instanceof Map ? currentOficialMap.get(date) : currentOficialMap[date] || null;
         let mepVarText = '-';
-        if (mepVal !== null) {
+        if (mepVal !== null && mepVal !== undefined) {
           const fullIdx = mepIndexMap.get(date);
           if (fullIdx !== undefined && fullIdx > 0) {
             const prevVal = fullMep[fullIdx - 1].value;
@@ -780,7 +866,7 @@ export const tabDolares = {
           }
         }
         let brechaMepText = '-';
-        if (mepVal !== null && oficialVal > 0) {
+        if (mepVal && oficialVal && oficialVal > 0) {
           brechaMepText = `${(((mepVal - oficialVal) / oficialVal) * 100).toFixed(2)}%`;
         }
         const mepValStr = mepVal ? String(mepVal.toFixed(2)).replace('.', ',') : '-';
@@ -788,9 +874,9 @@ export const tabDolares = {
       }
 
       if (showOficial) {
-        const oficialVal = oficialMap[date] || null;
+        const oficialVal = currentOficialMap instanceof Map ? currentOficialMap.get(date) : currentOficialMap[date] || null;
         let oficialVarText = '-';
-        if (oficialVal !== null) {
+        if (oficialVal !== null && oficialVal !== undefined) {
           const fullIdx = oficialIndexMap.get(date);
           if (fullIdx !== undefined && fullIdx > 0) {
             const prevVal = fullOficial[fullIdx - 1].value;
@@ -804,18 +890,18 @@ export const tabDolares = {
       }
 
       if (showBlueCompra) {
-        const blueItem = blueMap[date] || null;
+        const blueItem = currentBlueMap instanceof Map ? currentBlueMap.get(date) : currentBlueMap[date] || null;
         const blueCompraVal = blueItem ? blueItem.compra : null;
         const blueCompraValStr = blueCompraVal ? String(blueCompraVal.toFixed(2)).replace('.', ',') : '-';
         row += `;${blueCompraValStr}`;
       }
 
       if (showBlueVenta) {
-        const blueItem = blueMap[date] || null;
+        const blueItem = currentBlueMap instanceof Map ? currentBlueMap.get(date) : currentBlueMap[date] || null;
         const blueVentaVal = blueItem ? blueItem.venta : null;
-        const oficialVal = oficialMap[date] || null;
+        const oficialVal = currentOficialMap instanceof Map ? currentOficialMap.get(date) : currentOficialMap[date] || null;
         let brechaBlueText = '-';
-        if (blueVentaVal !== null && oficialVal > 0) {
+        if (blueVentaVal && oficialVal && oficialVal > 0) {
           brechaBlueText = `${(((blueVentaVal - oficialVal) / oficialVal) * 100).toFixed(2)}%`;
         }
         const blueVentaValStr = blueVentaVal ? String(blueVentaVal.toFixed(2)).replace('.', ',') : '-';
