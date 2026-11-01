@@ -68,12 +68,33 @@ export function switchNavigationTab(tabId) {
   } else if (tabId === 'dolares') {
     if (titleEl) titleEl.textContent = 'Mercado Cambiario y Cotizaciones del Dólar';
     tabDolares.init();
+    setTimeout(() => {
+      if (appState.dolares.chart) appState.dolares.chart.resize();
+      tabDolares.renderChart();
+    }, 40);
   } else if (tabId === 'byma') {
     if (titleEl) titleEl.textContent = 'Títulos y Bonos Soberanos (BYMA)';
     tabByma.init();
   } else if (tabId === 'comparador') {
     if (titleEl) titleEl.textContent = 'Comparador de Productos Financieros (BCRA)';
     tabComparador.init();
+    if (tabComparador.initialized) {
+      tabComparador.render();
+    }
+  } else if (tabId === 'hipotecarios') {
+    if (titleEl) titleEl.textContent = 'Comparador y Simulador de Préstamos Hipotecarios UVA';
+    const targetView = document.getElementById('viewComparador');
+    if (targetView) {
+      document.querySelectorAll('.view-panel').forEach(panel => {
+        panel.classList.add('hidden');
+        panel.classList.remove('active');
+      });
+      targetView.classList.remove('hidden');
+      targetView.classList.add('active');
+    }
+    tabComparador.init().then(() => {
+      tabComparador.switchSubTab('hipotecarios');
+    });
   } else if (tabId === 'consultas') {
     if (titleEl) titleEl.textContent = 'Consultas Financieras y Perfil de Deudores';
     tabConsultas.init();

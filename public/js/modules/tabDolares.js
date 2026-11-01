@@ -17,7 +17,14 @@ export const tabDolares = {
   initialized: false,
 
   async init() {
-    if (this.initialized) return;
+    if (this.initialized) {
+      this.renderLiveCards();
+      setTimeout(() => {
+        if (appState.dolares.chart) appState.dolares.chart.resize();
+        this.renderChart();
+      }, 30);
+      return;
+    }
 
     // Rango rápido de dólares
     const ranges = document.getElementById('dolaresRanges');
