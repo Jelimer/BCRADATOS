@@ -47,8 +47,8 @@ El proyecto es una plataforma web integral full-stack de alto rendimiento compue
 
 3. **Suite de Pruebas Automatizadas (`npm test`):**
    - Ejecución nativa con el motor `node:test` y `node:assert/strict` de Node.js v22 (sin dependencias frágiles externas).
-   - Cobertura ampliada a 303 tests en 102 suites de pruebas con 100% de éxito (Exit Code 0) y cero regresiones.
-   - Abarca verificación de salud y rutas base, políticas de caché LRU O(1), contratos del BCRA, proxies externos (INDEC, BYMA, DolarApi, ArgentinaDatos), nuevos endpoints CriptoYa y Finanzas, esquemas en `schemaValidator.js`, contingencia y fallbacks ante caídas, snapshots persistentes 24/7, análisis estático ESM sin navegador, detección de ciclos circulares DFS en módulos frontend, pruebas de compresión HTTP (gzip, deflate, bypass), pruebas unitarias puras de `CacheService`, combinaciones cross-feature, normalización de CSS tokens WCAG AA, plugins visuales de Chart.js (`verticalCrosshairPlugin`, `maxMinLabelPlugin`, `lineShadowPlugin`), tolerancia a entornos headless DOM, optimización algorítmica de ordenamiento cronológico ISO $O(1)$, paginación en memoria $O(1)$ con `DocumentFragment`, búsqueda hash $O(1)$ en bonos BYMA (`PRIORITY_MAP`), y 4 suites de verificación y estrés adversarial (100% aprobado, 0 mutantes sobrevivientes).
+   - Cobertura ampliada a 326 tests en 112 suites de pruebas con 100% de éxito (Exit Code 0) y cero regresiones.
+   - Abarca verificación de salud y rutas base, políticas de caché LRU O(1), contratos del BCRA, proxies externos (INDEC, BYMA, DolarApi, ArgentinaDatos), nuevos endpoints CriptoYa y Finanzas, esquemas en `schemaValidator.js`, contingencia y fallbacks ante caídas, snapshots persistentes 24/7, suite dedicada oficial de INDEC (`tests/indec-official-api.test.js`), análisis estático ESM sin navegador, detección de ciclos circulares DFS en módulos frontend, pruebas de compresión HTTP (gzip, deflate, bypass), pruebas unitarias puras de `CacheService`, combinaciones cross-feature, normalización de CSS tokens WCAG AA, plugins visuales de Chart.js (`verticalCrosshairPlugin`, `maxMinLabelPlugin`, `lineShadowPlugin`), tolerancia a entornos headless DOM, optimización algorítmica de ordenamiento cronológico ISO $O(1)$, paginación en memoria $O(1)$ con `DocumentFragment`, búsqueda hash $O(1)$ en bonos BYMA (`PRIORITY_MAP`), y 4 suites de verificación y estrés adversarial (100% aprobado, 0 mutantes sobrevivientes).
 
 ---
 
@@ -103,6 +103,10 @@ El proyecto es una plataforma web integral full-stack de alto rendimiento compue
 | 45 | High-Performance Sorting & Paginación O(1) | Sustitución de `localeCompare` por comparación lexicográfica directa en `server.js` y `api.js`, paginación $O(1)$ sin clonado/reversión en `tabBcra.js` y `tabDolares.js`, renderizado con `DocumentFragment` y `Set` de favoritos | M2_PERF_CODE | **DONE** |
 | 46 | Backend Route Cleanups & Presets | Consolidación de fallback de bonos en `findFallbackBond` en `server.js`, corrección de regex `/[DCXYZ]$/` y uso de presets TTL formales `BANCOS` e `INDICADORES` | M2_PERF_CODE | **DONE** |
 | 47 | E2E Regression Verification & Final Repository Audit | Certificación del 100% de la suite de pruebas `npm test` (303 tests, 102 suites), 4 arneses empíricos adversariales y auditoría forense de integridad | M3_E2E_AUDIT | **DONE** |
+| 48 | INDEC Official APIs Integration | Conexión a la API oficial de series de tiempo (`https://apis.datos.gob.ar/series/api/series/`) con barra final para evitar redirecciones 301, soporte de parámetros de consulta (`ids`, `limit`, `start_date`, `end_date`, `format`) y token opcional `INDEC_API_TOKEN` para `api.indec.gob.ar` | M_INDEC_OFFICIAL | **DONE** |
+| 49 | INDEC JSON Contract Retrocompatibility | Preservación del esquema matricial `{ data: [[fecha, ...]], meta, count, params, isFallback, cached }` para consumo transparente por `tabIndec.js` sin alterar el frontend | M_INDEC_OFFICIAL | **DONE** |
+| 50 | Cascading Fallback & RIPTE Hydration | Fallback automático y resiliente a `data/indec_series_snapshot.json` ante caídas o demoras (>5s) del upstream e hidratación de RIPTE (`158.1_REPTE_0_0_5`) cuando la API retorne null | M_INDEC_OFFICIAL | **DONE** |
+| 51 | INDEC Automated Test Suite | Implementación de `tests/indec-official-api.test.js` cubriendo contratos, invariantes, resiliencia y caché, manteniendo el 100% de la suite `npm test` aprobada (326 tests en 112 suites) | M_INDEC_OFFICIAL | **DONE** |
 
 ---
 
@@ -125,6 +129,7 @@ El proyecto es una plataforma web integral full-stack de alto rendimiento compue
 | **M1_VISUAL_CHARTS** | Visual, Layout & Chart.js Polish | CSS tokens, WCAG contraste, responsividad de maquetación, gráficos Chart.js, tooltips y formato español | none | **DONE** |
 | **M2_PERF_CODE** | Performance & Code Optimizations | Bug fix `clientCache.has`, ordenamiento ISO $O(1)$, paginación en memoria $O(1)$, DocumentFragment en catálogo BCRA, limpieza server.js | M1_VISUAL_CHARTS | **DONE** |
 | **M3_E2E_AUDIT** | E2E Verification & Forensic Audit | Verificación completa de `npm test` (303 tests en 102 suites), 4 suites adversariales y auditoría forense de integridad | M1_VISUAL_CHARTS, M2_PERF_CODE | **DONE** |
+| **M_INDEC_OFFICIAL** | INDEC Official API Integration, Resiliency & Tests | Integrar API oficial de series de tiempo del INDEC con trailing slash en server.js, soporte de token opcional, hidratación de RIPTE, fallback en cascada, suite de pruebas tests/indec-official-api.test.js y actualización de PROJECT.md | none | **DONE** |
 
 ---
 
@@ -189,6 +194,7 @@ bcra-monetarias/
 │   ├── challenger_remed_2_concurrency.test.js # Concurrencia de registros y desregistros de Chart.js
 │   ├── compression.test.js        # Validación de compresión HTTP Gzip, Deflate y bypass x-no-compression
 │   ├── cacheService.unit.test.js  # Pruebas unitarias puras de CacheService (LRU O(1), TTL, purga, hitRate)
+│   ├── indec-official-api.test.js # Suite oficial INDEC: contratos de 5 series, invariantes, resiliencia y caché
 │   ├── adversarial-challenger-m2-2.js # Arnés adversarial de frontend state, cache edge-cases y fuzzing
 │   ├── adversarial-mutation-harness.js # Arnés de análisis de mutación y sensibilidad de esquemas
 │   ├── adversarial-challenger-charts-stress.js # Arnés de estrés extremo en Chart.js y temas
@@ -376,6 +382,59 @@ bcra-monetarias/
   },
   "cached": true,
   "timestamp": "2026-09-04T04:00:00.000Z"
+}
+```
+
+### 9. Backend ↔ Frontend Contract: Series Oficiales INDEC (`/api/indec/series`)
+```json
+{
+  "data": [
+    ["2024-01-01", 0.206, 4081.7, 715890, 143.5, 142.1],
+    ["2024-02-01", 0.132, 4583.8, 804210, 143.0, 138.5]
+  ],
+  "meta": [
+    {
+      "frequency": "month",
+      "start_date": "2004-01-01",
+      "end_date": "2026-08-01"
+    },
+    {
+      "field": {
+        "id": "145.3_INGNACUAL_DICI_M_38",
+        "description": "IPC. Tasa de variación mensual. Nivel General. Nacional."
+      }
+    },
+    {
+      "field": {
+        "id": "148.3_INUCLEONAL_DICI_M_19",
+        "description": "IPC. Núcleo. Nacional. Nivel índice."
+      }
+    },
+    {
+      "field": {
+        "id": "158.1_REPTE_0_0_5",
+        "description": "Remuneración Imponible Promedio de los Trabajadores Estables (RIPTE)."
+      }
+    },
+    {
+      "field": {
+        "id": "143.3_NO_PR_2004_A_31",
+        "description": "EMAE desestacionalizado. Base 2004."
+      }
+    },
+    {
+      "field": {
+        "id": "143.3_NO_PR_2004_A_21",
+        "description": "EMAE original. Base 2004."
+      }
+    }
+  ],
+  "count": 271,
+  "params": {
+    "ids": "145.3_INGNACUAL_DICI_M_38,148.3_INUCLEONAL_DICI_M_19,158.1_REPTE_0_0_5,143.3_NO_PR_2004_A_31,143.3_NO_PR_2004_A_21",
+    "limit": "1000"
+  },
+  "cached": false
 }
 ```
 

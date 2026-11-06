@@ -54,7 +54,8 @@ const BCRA_CAMBIARIAS_BASE = 'https://api.bcra.gob.ar/estadisticascambiarias/v1.
 const BCRA_TRANSPARENCIA_BASE = 'https://api.bcra.gob.ar/transparencia/v1.0';
 const BCRA_DEUDORES_BASE = 'https://api.bcra.gob.ar/centraldedeudores/v1.0';
 const BCRA_CHEQUES_BASE = 'https://api.bcra.gob.ar/cheques/v1.0';
-const INDEC_SERIES_BASE = 'https://apis.datos.gob.ar/series/api/series';
+const INDEC_SERIES_BASE = process.env.INDEC_SERIES_BASE || 'https://apis.datos.gob.ar/series/api/series/';
+const INDEC_DIRECT_BASE = process.env.INDEC_DIRECT_BASE || process.env.INDEC_API_BASE || 'https://api.indec.gob.ar/v1';
 const DATA912_BASE = 'https://data912.com/live';
 const BYMA_BASE = 'https://open.bymadata.com.ar/vanoms-be-core/rest/api/bymadata/free';
 const DOLARAPI_BASE = 'https://dolarapi.com/v1';
@@ -116,6 +117,83 @@ try {
   }
 } catch (e) {
   console.warn('[INDEC] No se pudo cargar snapshot persistente de series:', e.message);
+}
+
+/**
+ * Normaliza respuestas relacionales/PostgREST de api.indec.gob.ar al formato matricial estándar.
+ * @param {Array<object>} records 
+ * @param {object} query 
+ * @returns {object}
+ */
+function normalizeIndecDirectResponse(records, query = {}) {
+  const seriesIds = query.ids ? String(query.ids).split(',').map(s => s.trim()).filter(Boolean) : ['serie_indec'];
+  const meta = [
+    { field: { id: 'indice_tiempo', description: 'Índice de tiempo' } },
+    ...seriesIds.map(id => ({ field: { id, description: id } }))
+  ];
+
+  const data = records.map(r => {
+    const date = r.periodo || r.fecha || r.date || r.indice_tiempo;
+    const val = r.valor !== undefined ? r.valor : (r.value !== undefined ? r.value : null);
+    return [date, val];
+  });
+
+  return {
+    data,
+    meta,
+    count: data.length,
+    params: { ...query }
+  };
+}
+
+/**
+ * Hidrata series con valores faltantes o nulos (como RIPTE 158.1_REPTE_0_0_5)
+ * a partir del snapshot persistente oficial de INDEC.
+ * @param {object} responseData 
+ * @returns {object}
+ */
+function hydrateIndecSeries(responseData) {
+  if (!responseData || !Array.isArray(responseData.data) || !Array.isArray(responseData.meta)) {
+    return responseData;
+  }
+  const snapshot = persistentIndecSnapshot || cacheService.get(INDEC_FALLBACK_CACHE_KEY);
+  if (!snapshot || !snapshot.dates || !snapshot.series) {
+    return responseData;
+  }
+
+  const colMappings = [];
+  responseData.meta.forEach((m, idx) => {
+    const fid = m.field?.id;
+    if (fid && snapshot.series[fid]) {
+      const seriesObj = snapshot.series[fid];
+      const valMap = new Map();
+      let lastVal = null;
+      snapshot.dates.forEach((d, dIdx) => {
+        const v = seriesObj.values[dIdx];
+        if (v !== undefined && v !== null) lastVal = v;
+        valMap.set(d, v);
+        valMap.set(d.slice(0, 7), v);
+      });
+      colMappings.push({ colIdx: idx, valMap, lastVal });
+    }
+  });
+
+  if (colMappings.length === 0) return responseData;
+
+  for (const row of responseData.data) {
+    if (!Array.isArray(row)) continue;
+    const dateKey = row[0];
+    for (const { colIdx, valMap, lastVal } of colMappings) {
+      if (row[colIdx] === null || row[colIdx] === undefined || (typeof row[colIdx] === 'number' && isNaN(row[colIdx]))) {
+        const fallbackVal = valMap.get(dateKey) ?? valMap.get(String(dateKey).slice(0, 7)) ?? lastVal;
+        if (fallbackVal !== undefined && fallbackVal !== null) {
+          row[colIdx] = fallbackVal;
+        }
+      }
+    }
+  }
+
+  return responseData;
 }
 
 function getFallbackIndecData(query = {}) {
@@ -275,16 +353,57 @@ app.get('/api/metodologia', cacheMiddleware('CATALOG'), async (req, res, next) =
 
 // Series macroeconómicas de INDEC (TTL: 1h) con alta resiliencia y timeout optimizado
 app.get('/api/indec/series', cacheMiddleware('HISTORICAL_SERIES'), async (req, res, next) => {
+  const token = process.env.INDEC_API_TOKEN;
+
+  // 1. Si se provee token oficial INDEC_API_TOKEN, intentar consulta a la API directa oficial
+  if (token) {
+    try {
+      const directUrl = `${INDEC_DIRECT_BASE}/series`;
+      const directResponse = await httpClient.get(directUrl, {
+        params: req.query,
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        timeout: 5000
+      }, {
+        retries: 0
+      });
+
+      if (directResponse.data) {
+        let normalized = directResponse.data;
+        if (Array.isArray(directResponse.data) && directResponse.data.length > 0 && typeof directResponse.data[0] === 'object' && !Array.isArray(directResponse.data[0])) {
+          normalized = normalizeIndecDirectResponse(directResponse.data, req.query);
+        }
+
+        if (Array.isArray(normalized.data) && normalized.data.length > 0) {
+          const hydrated = hydrateIndecSeries(normalized);
+          return res.json(hydrated);
+        }
+      }
+    } catch (directError) {
+      console.warn('[INDEC] Fallo en API directa con INDEC_API_TOKEN, conmutando a API abierta:', directError.message);
+    }
+  }
+
+  // 2. Fuente primaria/por defecto: API oficial de series de tiempo de la República Argentina
   try {
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const response = await httpClient.get(INDEC_SERIES_BASE, {
       params: req.query,
+      headers,
       timeout: 5000
     }, {
       retries: 0
     });
 
+    if (req.query.format === 'csv' && typeof response.data === 'string') {
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      return res.send(response.data);
+    }
+
     if (response.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
-      return res.json(response.data);
+      const hydrated = hydrateIndecSeries(response.data);
+      return res.json(hydrated);
     }
 
     const fallback = getFallbackIndecData(req.query);
